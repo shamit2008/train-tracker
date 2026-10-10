@@ -919,7 +919,7 @@ button:disabled { cursor: default; opacity: .5; }
     </div>
   </aside>
 
-  <div class="map" id="map" data-style="minimal">
+  <div class="map" id="map" data-style="geo">
     <div id="basemap" class="basemap" aria-hidden="true"></div>
     <svg id="svg" tabindex="0" role="group" aria-roledescription="map" aria-label="Map of North America with live train positions. Arrow keys pan, plus and minus zoom. Press Tab to reach the trains on the map."></svg>
     <div class="regions" id="regions" role="group" aria-label="Jump to a region"></div>
@@ -1157,11 +1157,11 @@ const mqMobile = matchMedia('(max-width: 760px)');
 const prefs = {
   theme: store.get('theme', 'auto'),
   motion: store.get('motion', 'system'),
-  mapStyle: store.get('mapStyle', 'minimal'),
+  mapStyle: store.get('mapStyle', 'geo'),
   density: store.get('density', 'detailed'),
   trainLabels: store.get('trainLabels', true),
 };
-if (!['minimal', 'geo', 'rail'].includes(prefs.mapStyle)) prefs.mapStyle = 'minimal';
+if (!['minimal', 'geo', 'rail'].includes(prefs.mapStyle)) prefs.mapStyle = 'geo';
 let reduceMotion = false;
 function applyTheme() {
   if (prefs.theme === 'light' || prefs.theme === 'dark') document.documentElement.setAttribute('data-theme', prefs.theme);
