@@ -1,0 +1,13 @@
+{
+  "name": "trackside-feeds",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "schedules": "node build-schedules.mjs",
+    "deploy": "node publish.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}

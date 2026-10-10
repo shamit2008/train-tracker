@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Trackside</title>
-<meta name="description" content="Trackside: an unofficial live map of Amtrak, VIA Rail and Brightline trains, built on the Amtraker API.">
+<meta name="description" content="Trackside: an unofficial live map of Amtrak, VIA Rail, Brightline, Metrolink and Caltrain trains.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231d1d1b'/%3E%3Cpath d='M11 5v22M21 5v22' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M7 10h18M7 16h18M7 22h18' stroke='%23fff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -915,7 +915,7 @@ button:disabled { cursor: default; opacity: .5; }
     </div>
 
     <div class="foot" id="foot">
-      Unofficial. Positions come from the <a href="https://amtraker.com" target="_blank" rel="noopener">Amtraker API</a>, which decodes Amtrak's Track Your Train map, and update about once a minute. Rail lines from the FRA/BTS North American Rail Network. Basemap from the US Census and Natural Earth; map tiles from OpenFreeMap, © OpenMapTiles, data from OpenStreetMap.
+      Unofficial. Positions come from the <a href="https://amtraker.com" target="_blank" rel="noopener">Amtraker API</a>, which decodes Amtrak's Track Your Train map, and update about once a minute. Metrolink positions from <a href="https://metrolinktrains.com/about/gtfs/" target="_blank" rel="noopener">Metrolink GTFS-RT</a>; Caltrain positions from <a href="https://511.org/open-data" target="_blank" rel="noopener">511.org</a>. Rail lines from the FRA/BTS North American Rail Network. Basemap from the US Census and Natural Earth; map tiles from OpenFreeMap, © OpenMapTiles, data from OpenStreetMap.
     </div>
   </aside>
 
@@ -961,7 +961,7 @@ button:disabled { cursor: default; opacity: .5; }
   <div class="ob-card">
     <span class="logo"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="currentColor"/><path d="M11 5v22M21 5v22" stroke="var(--paper)" stroke-width="2.4" stroke-linecap="round"/><path d="M7 10h18M7 16h18M7 22h18" stroke="var(--paper)" stroke-width="2" stroke-linecap="round"/></svg><span class="wordmark"><span class="trk">Track</span>side</span></span>
     <h2 id="obTitle">Live trains across North America</h2>
-    <p>Amtrak, VIA Rail and Brightline positions, refreshed about once a minute. Where would you like to start?</p>
+    <p>Amtrak, VIA Rail, Brightline, Metrolink and Caltrain positions, refreshed about once a minute. Where would you like to start?</p>
     <div class="ob-paths">
       <button type="button" data-ob="explore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg><span><b>Explore live trains</b><small>Browse the map by region and see who's running late.</small></span></button>
       <button type="button" data-ob="track"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><span><b>Find my train</b><small>Search by train number, route or station.</small></span></button>
@@ -1110,6 +1110,12 @@ const PLACES = {
 'use strict';
 
 const API = 'https://api-v3.amtraker.com/v3';
+/* Metrolink and Caltrain come from the Trackside feeds worker (worker/), which keeps their API keys off this page.
+   FEEDS_WORKER is filled in by `npm run deploy` in worker/. A page opened from disk or
+   localhost falls back to the local dev server (`npm run dev` in worker/). Either way, no keys live here. */
+const FEEDS_WORKER = 'https://trackside-feeds.trackside-feeds.workers.dev';
+const FEEDS_API = FEEDS_WORKER || (/^(file:|https?:\/\/(localhost|127\.0\.0\.1)[:/])/.test(location.href) ? 'http://localhost:8787' : '');
+const FEEDS_KEEP_MS = 5 * 60000;   // if the worker hiccups, keep its last trains this long rather than dropping them
 const REFRESH_S = 60;
 const STALE_MIN = 20;
 const $ = (s, el = document) => el.querySelector(s);
@@ -1263,6 +1269,10 @@ const HEADING = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315
 const HEADING_WORD = { N: 'north', NE: 'northeast', E: 'east', SE: 'southeast', S: 'south', SW: 'southwest', W: 'west', NW: 'northwest' };
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 const provName = (p) => (p === 'Via' ? 'VIA Rail' : p);
+/* Metrolink and Caltrain stations have no public three-letter codes, so their operator is shown in the code's place. */
+const codeLabel = (code) => { const st = stations.get(code); return (st && st.label) || code; };
+const codeShort = (code) => { const st = stations.get(code); return st && st.label ? st.name : code; };
+const endCodes = (t) => (t.feed ? provName(t.provider) : `${t.orig.code || '?'}–${t.dest.code || '?'}`);
 const kmToMi = (km) => km * 0.621371;
 function fmtMi(km) {
   const mi = kmToMi(km);
@@ -1336,6 +1346,7 @@ function analyze(raw) {
     num: String(raw.trainNum ?? ''),
     route: raw.routeName || 'Train ' + raw.trainNum,
     provider: raw.provider || 'Amtrak',
+    feed: raw.dataSource === 'trackside-feeds',   // Metrolink or Caltrain, via the feeds worker
     lat, lon, hasPos: isFinite(lat) && isFinite(lon) && !(lat === 0 && lon === 0),
     heading: raw.heading || '',
     rot: HEADING[raw.heading] ?? 0,
@@ -2606,7 +2617,7 @@ function markBoardStation() {
 }
 function stationTip(s) {
   const n = upcomingAt(s.code).length;
-  return `<b>${esc(s.name || s.code)}</b> <span class="t-est">${esc(s.code)}</span>`
+  return `<b>${esc(s.name || s.code)}</b> <span class="t-est">${esc(codeLabel(s.code))}</span>`
     + (s.city ? `<br>${esc(s.city)}${s.state ? ', ' + esc(s.state) : ''}` : '')
     + `<br>${n ? plural(n, 'train') + ' still to arrive' : 'No more trains in the live feed'}`;
 }
@@ -2632,7 +2643,7 @@ function progHTML(t) {
   const pc = Math.round(p.pct * 100);
   const o = t.orig, d = t.dest;
   return `<div class="prog sig-${t.sig}">
-    <div class="prog-ends"><span><b>${esc(o.code || '')}</b> ${esc(o.name || '')}</span><span><b>${esc(d.code || '')}</b> ${esc(d.name || '')}</span></div>
+    <div class="prog-ends"><span>${t.feed ? '' : `<b>${esc(o.code || '')}</b> `}${esc(o.name || '')}</span><span>${t.feed ? '' : `<b>${esc(d.code || '')}</b> `}${esc(d.name || '')}</span></div>
     <div class="prog-track" role="progressbar" aria-label="Distance along the route" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pc}" aria-valuetext="${pc}% of the route completed"><div class="prog-fill" style="width:${pc}%"></div><div class="prog-dot" style="left:${pc}%"></div></div>
     <div class="prog-txt"><b>${pc}% completed</b>, ${100 - pc}% remaining. ${fmtMi(p.doneKm)} traveled, ${fmtMi(p.leftKm)} to go</div>
   </div>`;
@@ -2993,7 +3004,7 @@ function runAction(a, el) {
 }
 
 /* ---------------- explore: filters ---------------- */
-const defaultProviders = () => { const d = knownProviders.filter((p) => /amtrak/i.test(p)); return d.length ? d : knownProviders; };
+const defaultProviders = () => { const d = knownProviders.filter((p) => /amtrak|metrolink|caltrain/i.test(p)); return d.length ? d : knownProviders; };
 /* What counts as a filter: anything hiding trains (a default operator turned off, a delay filter, a search). */
 function activeFilterCount() {
   let n = 0;
@@ -3109,7 +3120,7 @@ function trainRow(t, o = {}) {
   } else nextLine = `<span class="nx">Arrived at ${esc(t.dest.name || t.dest.code || 'its last stop')}</span>`;
   const meta = [];
   if (o.dist != null) meta.push(fmtMi(o.dist) + ' away');
-  meta.push(`${esc(t.orig.code || '?')}–${esc(t.dest.code || '?')}`);
+  meta.push(esc(endCodes(t)));
   if (numCount.get(t.num) > 1 && t.startDay) meta.push('left ' + esc(t.startDay));
   if (t.speed >= 1) meta.push(Math.round(t.speed) + ' mph');
   meta.push(isStale(t) ? `<span class="stale">reported ${esc(shortAgo(t.posTime))}</span>` : esc(shortAgo(t.posTime)));
@@ -3302,7 +3313,7 @@ function renderSugg() {
 function suggOptHTML(it, s) {
   if (it.kind === 'train') {
     const t = it.t, next = t.nextIdx >= 0 ? t.stops[t.nextIdx] : null;
-    const sub = isPre(t) ? 'Not yet departed' : next ? `Next: ${next.name}, ${clockZ(next.arr || next.dep, next.tz)}` : `${t.orig.code}–${t.dest.code}`;
+    const sub = isPre(t) ? 'Not yet departed' : next ? `Next: ${next.name}, ${clockZ(next.arr || next.dep, next.tz)}` : endCodes(t);
     return `<span class="sg-ico sig-${t.sig}"><span class="lamp"></span></span><span class="sg-main"><b>${hl(t.num, s)} ${hl(t.route, s)}</b><small>${esc(sub)}</small></span><span class="sg-side sig-${t.sig}" style="color:var(--sig-text)">${esc(statusText(t))}</span>`;
   }
   if (it.kind === 'route') {
@@ -3310,7 +3321,7 @@ function suggOptHTML(it, s) {
     return `<span class="sg-ico">${ICON.route}</span><span class="sg-main"><b>${hl(r.name, s)}</b><small>${plural(r.ids.length, 'train')} in the feed${r.late ? `, ${r.late} running late` : ''}</small></span><span class="sg-side">Route</span>`;
   }
   const st = it.st;
-  return `<span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(st.name, s)}</b><small>${esc(st.code)}${st.city ? ' · ' + esc(st.city) + (st.state ? ', ' + esc(st.state) : '') : ''}</small></span><span class="sg-side">${it.n ? plural(it.n, 'train') : 'Station'}</span>`;
+  return `<span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(st.name, s)}</b><small>${esc(codeLabel(st.code))}${st.city ? ' · ' + esc(st.city) + (st.state ? ', ' + esc(st.state) : '') : ''}</small></span><span class="sg-side">${it.n ? plural(it.n, 'train') : 'Station'}</span>`;
 }
 function setActiveSugg(i) {
   suggActive = i;
@@ -3397,7 +3408,7 @@ function stationPicker(input, list, onPick) {
     items = s ? matchStations(s, 6) : [];
     active = -1;
     list.innerHTML = items.length
-      ? items.map((x, i) => `<div class="sg-opt" role="option" id="${list.id}-${i}" data-i="${i}" aria-selected="false"><span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(x.st.name, s)}</b><small>${esc(x.st.code)}${x.st.city ? ' · ' + esc(x.st.city) + (x.st.state ? ', ' + esc(x.st.state) : '') : ''}</small></span><span class="sg-side">${x.n ? plural(x.n, 'train') : ''}</span></div>`).join('')
+      ? items.map((x, i) => `<div class="sg-opt" role="option" id="${list.id}-${i}" data-i="${i}" aria-selected="false"><span class="sg-ico">${ICON.station}</span><span class="sg-main"><b>${hl(x.st.name, s)}</b><small>${esc(codeLabel(x.st.code))}${x.st.city ? ' · ' + esc(x.st.city) + (x.st.state ? ', ' + esc(x.st.state) : '') : ''}</small></span><span class="sg-side">${x.n ? plural(x.n, 'train') : ''}</span></div>`).join('')
       : (s ? '<div class="sg-empty">No stations match.</div>' : '');
     const show = !!list.innerHTML && document.activeElement === input;
     list.hidden = !show;
@@ -3548,7 +3559,7 @@ function renderDetail() {
     else actCell = `<div class="s-t est">${wd ? '<span class="wd">&nbsp;</span>' : ''}<span class="na">No estimate</span></div>`;
     rows.push(`<li class="stop ${r.done ? 'done' : 'ahead'}${r.isNext ? ' next' : ''}${r.last ? ' last' : ''}">`
       + `<span class="rail"><i></i></span>`
-      + `<div class="s-name">${nameEl}${tags}<small>${esc(s.code)}${tzNote ? `<span class="tz">${esc(tzNote)}</span>` : ''}${s.platform ? ', track ' + esc(s.platform) : ''}</small></div>`
+      + `<div class="s-name">${nameEl}${tags}<small>${esc(codeLabel(s.code))}${tzNote ? `<span class="tz">${esc(tzNote)}</span>` : ''}${s.platform ? ', track ' + esc(s.platform) : ''}</small></div>`
       + `<div class="s-t">${wdCell}<span class="k">${r.kind}</span>${esc(clock(r.sch, tz))}</div>`
       + actCell + `</li>`);
   });
@@ -3597,7 +3608,7 @@ function renderDetail() {
         <div><dt>Map position</dt><dd>Estimated<small>from the last report</small></dd></div>
         <div><dt>Operator</dt><dd>${esc(provName(t.provider))}</dd></div>
       </dl>
-      <p class="est-note"><b>The marker's position is estimated.</b> Amtrak reports where each train is every few minutes; between reports, Trackside moves the marker along the track at the last reported speed. ${ghostVisible ? 'The dashed circle on the map, visible when zoomed in, marks the last reported position.' : ''}${t.trailCount ? ' Small dots behind the train are positions this browser recorded in the last hour.' : ''}</p>
+      <p class="est-note"><b>The marker's position is estimated.</b> ${esc(t.feed ? provName(t.provider) : 'Amtrak')} reports where each train is every ${t.provider === 'Metrolink' ? 'minute or so' : 'few minutes'}; between reports, Trackside moves the marker along the track at the last reported speed. ${ghostVisible ? 'The dashed circle on the map, visible when zoomed in, marks the last reported position.' : ''}${t.trailCount ? ' Small dots behind the train are positions this browser recorded in the last hour.' : ''}</p>
       ${noticesHTML(t)}
       ${delayChart(t)}
       <div class="tt">
@@ -3765,7 +3776,7 @@ function boardRow(e, kind) {
   if (t.cancelled) flag = 'Cancelled';
   else if (e.atStation) { flag = `<span class="here">At the station</span>`; sub = shortDelta(e.d); }
   else if (e.passed) { flag = kind === 'arr' ? 'Arrived' : 'Departed'; sub = shortDelta(e.d); }
-  else if (isPre(t)) { flag = fmtDelay(e.d); sub = `Not yet left ${t.orig.code}`; }
+  else if (isPre(t)) { flag = fmtDelay(e.d); sub = `Not yet left ${t.feed ? t.orig.name : t.orig.code}`; }
   else if (e.approaching) {
     flag = fmtDelay(e.d);
     const st = stations.get(s.code);
@@ -3810,7 +3821,7 @@ function renderBoard() {
         </div>
       </div>
       <header class="st-head">
-        <p><span class="st-code">${esc(st.code)}</span>${esc(place)}</p>
+        <p><span class="st-code">${esc(codeLabel(st.code))}</span>${esc(place)}</p>
         <h2>${esc(st.name || st.code)}</h2>
         <p>${nextHour ? `<b style="color:var(--ink)">${plural(nextHour, 'train')} arriving in the next hour</b>, ` : ''}${upcoming ? plural(upcoming, 'train') + ' still to come' : 'No more trains in the live feed'}${me ? ` · ${fmtMi(kmFromMe(st.lon, st.lat))} from you` : ''}</p>
       </header>
@@ -3890,8 +3901,8 @@ function renderTrip() {
     const d = gone ? null : diffMin(si.dep, si.schDep);
     return `<button type="button" class="row trip-row sig-${t.sig}" data-id="${esc(t.id)}"><span class="lamp"></span><span class="r-num">${esc(t.num)}</span>`
       + `<span class="r-main"><b>${esc(t.route)}</b>`
-      + `<small>${gone ? 'Left' : 'Departs'} ${esc(si.code)} <b>${esc(weekday(si.dep || si.schDep, si.tz))} ${esc(clockZ(si.dep || si.schDep, si.tz))}</b>${!gone && si.dep ? ' est.' : ''} → ${esc(sj.code)} <b>${esc(clockZ(sj.arr || sj.schArr, sj.tz))}</b> ${esc(weekday(sj.arr || sj.schArr, sj.tz))}</small>`
-      + `<small class="r-meta">${isFinite(mins) && mins > 0 ? dur(mins) + ' trip · ' : ''}${gone ? 'already on its way' : esc(relTime(dep))}${d != null && Math.abs(d) > 1 ? ' · ' + esc(shortDelta(d)) + ' at ' + esc(si.code) : ''}</small></span>`
+      + `<small>${gone ? 'Left' : 'Departs'} ${esc(codeShort(si.code))} <b>${esc(weekday(si.dep || si.schDep, si.tz))} ${esc(clockZ(si.dep || si.schDep, si.tz))}</b>${!gone && si.dep ? ' est.' : ''} → ${esc(codeShort(sj.code))} <b>${esc(clockZ(sj.arr || sj.schArr, sj.tz))}</b> ${esc(weekday(sj.arr || sj.schArr, sj.tz))}</small>`
+      + `<small class="r-meta">${isFinite(mins) && mins > 0 ? dur(mins) + ' trip · ' : ''}${gone ? 'already on its way' : esc(relTime(dep))}${d != null && Math.abs(d) > 1 ? ' · ' + esc(shortDelta(d)) + ' at ' + esc(codeShort(si.code)) : ''}</small></span>`
       + `<span class="r-delay">${esc(statusText(t))}</span></button>`;
   }).join('') + '</div><p class="hint">Only direct trains in the live feed (running now or about to start) are shown. This isn’t a full timetable and doesn’t include connections.</p>';
 }
@@ -3937,7 +3948,7 @@ function stationRow(st, km) {
   const up = upcomingAt(st.code);
   const next = up[0];
   const place = st.city ? st.city + (st.state ? ', ' + st.state : '') : '';
-  return `<button type="button" class="srow" data-code="${esc(st.code)}"><span><b>${esc(st.name || st.code)}${isFavStation(st.code) ? `<span class="star-mini">${ICON.star}</span>` : ''}</b><small>${esc(st.code)}${place ? ' · ' + esc(place) : ''}${km != null ? ' · ' + fmtMi(km) + ' away' : ''}</small></span>`
+  return `<button type="button" class="srow" data-code="${esc(st.code)}"><span><b>${esc(st.name || st.code)}${isFavStation(st.code) ? `<span class="star-mini">${ICON.star}</span>` : ''}</b><small>${esc(codeLabel(st.code))}${place ? ' · ' + esc(place) : ''}${km != null ? ' · ' + fmtMi(km) + ' away' : ''}</small></span>`
     + `<span class="side-v">${up.length ? `<b>${up.length}</b> to come<br>next ${esc(clock(next.time, next.t.stops[next.i].tz))}` : 'No more today'}</span></button>`;
 }
 function renderStationsTab() {
@@ -4427,7 +4438,7 @@ function ingest(json) {
   knownProviders = provs;
   if (!providers) {
     const saved = store.get('providers', null);
-    providers = new Set(Array.isArray(saved) ? saved.filter((p) => provs.includes(p)) : provs.filter((p) => /amtrak/i.test(p)));
+    providers = new Set(Array.isArray(saved) ? saved.filter((p) => provs.includes(p)) : provs.filter((p) => /amtrak|metrolink|caltrain/i.test(p)));
     if (!providers.size) providers = new Set(provs);
     renderFilters();
   } else if (newProv) renderFilters();
@@ -4443,29 +4454,49 @@ function ingest(json) {
   resolveHash();
 }
 
+function addStations(json) {
+  for (const s of Object.values(json || {})) {
+    const lat = Number(s && s.lat), lon = Number(s && s.lon);
+    if (!s || !s.code || !isFinite(lat) || !isFinite(lon)) continue;
+    stations.set(s.code, { code: s.code, name: s.name, label: s.label || '', city: s.city, state: s.state, lat, lon, p: projection([lon, lat]) });
+  }
+}
+function stationsChanged() {
+  const wall = Date.now();
+  legCache.clear();
+  for (const t of trains) setupMotion(t, t, wall);
+  renderStations();
+  drawRoute();
+  drawNetwork();
+  if (!topScreen() && tab === 'stations') renderStationsTab();
+  if (topScreen() && topScreen().type === 'train') renderDetail();
+  resolveHash();
+}
 async function loadStations() {
   if (stationsLoaded || stationsLoading) return;
   stationsLoading = true;
   try {
     const r = await fetch(API + '/stations', { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    const json = await r.json();
-    for (const s of Object.values(json || {})) {
-      const lat = Number(s && s.lat), lon = Number(s && s.lon);
-      if (!s || !s.code || !isFinite(lat) || !isFinite(lon)) continue;
-      stations.set(s.code, { code: s.code, name: s.name, city: s.city, state: s.state, lat, lon, p: projection([lon, lat]) });
-    }
+    addStations(await r.json());
     stationsLoaded = true;
-    const wall = Date.now();
-    for (const t of trains) setupMotion(t, t, wall);
-    renderStations();
-    drawRoute();
-    drawNetwork();
-    if (!topScreen() && tab === 'stations') renderStationsTab();
-    if (topScreen() && topScreen().type === 'train') renderDetail();
-    resolveHash();
+    stationsChanged();
   } catch { /* stations are optional; retried with the next refresh */ }
   finally { stationsLoading = false; }
+}
+/* Metrolink and Caltrain stations, from the feeds worker; loaded once, retried with the next refresh. */
+let feedStationsLoaded = false, feedStationsLoading = false;
+async function loadFeedStations() {
+  if (!FEEDS_API || feedStationsLoaded || feedStationsLoading) return;
+  feedStationsLoading = true;
+  try {
+    const r = await fetch(FEEDS_API + '/v1/stations', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    addStations(await r.json());
+    feedStationsLoaded = true;
+    if (stationsLoaded) stationsChanged();
+  } catch { /* the trains still draw at their reported positions */ }
+  finally { feedStationsLoading = false; }
 }
 
 function setStatus(kind) {
@@ -4494,14 +4525,33 @@ function showError(err) {
     + `The Amtraker API didn't respond (${esc(err.message || 'network error')}). The page tries again every minute. `
     + `If you're viewing this inside an app preview that blocks outside requests, open it directly in Chrome, Safari, Firefox or Edge.</div>`;
 }
+/* Metrolink and Caltrain, shaped like Amtraker's trains. Never throws: Amtrak still loads if the worker is down. */
+let feedTrains = {}, feedTrainsAt = 0;
+async function loadFeedTrains() {
+  if (!FEEDS_API) return {};
+  try {
+    const r = await fetch(FEEDS_API + '/v1/trains', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const json = await r.json();
+    feedTrains = {};
+    for (const [k, v] of Object.entries(json || {})) if (Array.isArray(v)) feedTrains['feed:' + k] = v;
+    feedTrainsAt = Date.now();
+  } catch {
+    if (Date.now() - feedTrainsAt > FEEDS_KEEP_MS) feedTrains = {};
+  }
+  if (Object.keys(feedTrains).length) loadFeedStations();
+  return feedTrains;
+}
 async function refresh() {
   if (loading) return;
   loading = true;
   if (!$('#live').classList.contains('error')) setStatus(lastOk ? 'ok' : 'loading');
   try {
+    const feedsReq = loadFeedTrains();
     const r = await fetch(API + '/trains', { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const json = await r.json();
+    Object.assign(json, await feedsReq);
     lastOk = Date.now();
     lastError = null;
     ingest(json);

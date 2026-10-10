@@ -1,0 +1,27 @@
+#!/bin/sh
+# Blocks commits that would publish a secret. Enable once per clone with:
+#   git config core.hooksPath .githooks
+# It checks staged changes for the values of the keys in .env, and refuses .env / .dev.vars files outright.
+
+root=$(git rev-parse --show-toplevel) || exit 1
+
+bad_files=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '(^|/)(\.env(\..*)?|\.dev\.vars.*)$' | grep -Ev '(^|/)\.env\.example$')
+if [ -n "$bad_files" ]; then
+  echo "pre-commit: refusing to commit secret files:" >&2
+  echo "$bad_files" | sed 's/^/  /' >&2
+  exit 1
+fi
+
+[ -f "$root/.env" ] || exit 0
+staged=$(git diff --cached -U0 --no-color | grep '^+' | grep -v '^+++')
+[ -n "$staged" ] || exit 0
+for name in METROLINK_API_KEY CALTRAIN_511_KEY GITHUB_TOKEN; do
+  value=$(sed -n "s/^[[:space:]]*$name[[:space:]]*=[[:space:]]*//p" "$root/.env" | tail -n 1 | sed "s/^['\"]//; s/['\"][[:space:]]*\$//; s/[[:space:]]*\$//")
+  [ ${#value} -ge 8 ] || continue
+  if printf '%s\n' "$staged" | grep -qF -- "$value"; then
+    echo "pre-commit: the staged changes contain $name from .env. Remove it before committing." >&2
+    echo "  (Keys belong in the feeds worker's secrets: see worker/README.md.)" >&2
+    exit 1
+  fi
+done
+exit 0

@@ -2,6 +2,11 @@
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
+
+# Wrangler (Cloudflare) local state
+.wrangler/
 
 # macOS / editor clutter
 .DS_Store

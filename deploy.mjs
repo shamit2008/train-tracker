@@ -5,13 +5,15 @@
 //   node deploy.mjs "Bigger station dots"   upload with your own commit message
 //
 // Reads GITHUB_TOKEN, GITHUB_REPO, GITHUB_BRANCH and DEPLOY_FILES from .env (git-ignored) or the
-// environment. The token is only sent to api.github.com and is never printed or uploaded.
+// environment. The token is only sent to api.github.com and is never printed or uploaded. Files that contain the
+// token or the transit API keys (METROLINK_API_KEY, CALTRAIN_511_KEY) are refused.
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
+const SECRET_KEYS = ['METROLINK_API_KEY', 'CALTRAIN_511_KEY'];
 
 async function loadEnv() {
   const env = {};
@@ -22,7 +24,7 @@ async function loadEnv() {
       if (m) env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
     }
   } catch { /* no .env: fall back to the environment */ }
-  return { ...env, ...Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('GITHUB_') || k === 'DEPLOY_FILES')) };
+  return { ...env, ...Object.fromEntries(Object.entries(process.env).filter(([k]) => k.startsWith('GITHUB_') || k === 'DEPLOY_FILES' || SECRET_KEYS.includes(k))) };
 }
 
 const env = await loadEnv();
@@ -61,10 +63,15 @@ const blobSha = (buf) => createHash('sha1').update(`blob ${buf.length}\0`).updat
 
 let uploaded = 0;
 for (const file of files) {
-  if (/^\.env($|\.)/.test(path.basename(file)) && file !== '.env.example') { console.error(`Refusing to upload ${file}: it may contain secrets.`); process.exit(1); }
+  if ((/^\.env($|\.)/.test(path.basename(file)) && file !== '.env.example') || /^\.dev\.vars/.test(path.basename(file))) { console.error(`Refusing to upload ${file}: it may contain secrets.`); process.exit(1); }
   const buf = await readFile(path.join(dir, file));
   if (buf.includes(token) || /\b(ghp_|gho_|github_pat_)[A-Za-z0-9_]{20,}/.test(buf.toString('utf8'))) {
     console.error(`Refusing to upload ${file}: it looks like it contains a GitHub token.`);
+    process.exit(1);
+  }
+  const leaked = SECRET_KEYS.find((k) => env[k] && buf.includes(env[k]));
+  if (leaked) {
+    console.error(`Refusing to upload ${file}: it contains ${leaked}. Keys belong in the feeds worker's secrets, not the site.`);
     process.exit(1);
   }
   const route = `contents/${file.split('/').map(encodeURIComponent).join('/')}`;

@@ -1,0 +1,11 @@
+# Cloudflare Worker that keeps the Metrolink and 511 (Caltrain) API keys off the public site.
+# The keys are Worker secrets, set by `npm run deploy` (see README.md), never written in this file.
+name = "trackside-feeds"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[vars]
+# Pages allowed to read the feeds from a browser. localhost is always allowed, for local testing;
+# "null" is what Chrome sends for a page opened as a file.
+ALLOWED_ORIGINS = "https://shamit2008.github.io,null"
