@@ -1,0 +1,8 @@
+# Secrets: never commit these
+.env
+.env.*
+!.env.example
+
+# macOS / editor clutter
+.DS_Store
+node_modules/
