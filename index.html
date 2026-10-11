@@ -74,6 +74,7 @@
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
+@supports (height: 100dvh) { .app { height: var(--app-h, 100dvh); } }
 body {
   margin: 0; background: var(--paper); color: var(--ink);
   font: 15px/1.45 var(--font); overflow: hidden;
@@ -723,7 +724,7 @@ button:disabled { cursor: default; opacity: .5; }
 .foot a { color: var(--muted); }
 
 /* ---------- narrow screens: full-screen map with a draggable three-position sheet */
-@media (max-width: 760px) {
+@media (max-width: 559px), (max-width: 760px) and (min-height: 501px) {
   .app { display: block; position: relative; overflow: hidden; }
   .map { position: absolute; inset: 0; }
   .side {
@@ -774,12 +775,185 @@ button:disabled { cursor: default; opacity: .5; }
   .toast { left: 8px; right: 56px; max-width: none; }
   .playbar { width: calc(100% - 64px); left: 8px; transform: none; }
 }
-@media (max-width: 760px) and (prefers-reduced-motion: reduce) { .side { transition: none; } }
+/* Default: the compact map bar's dropdown and badge are for small screens only. */
+.region-sel, .map-live { display: none; }
+.q-close, .d-jump { display: none; }
+
+/* Touch screens and phones: finger-sized targets, and 16px fields so iOS doesn't zoom on focus */
+@media (max-width: 760px), (pointer: coarse) {
+  input, select, textarea, .search input { font-size: 16px; }
+  .icon-btn, .maptools > .icon-btn { width: 44px; height: 44px; }
+  .pager button { width: 44px; height: 44px; }
+  .density button { width: 44px; height: 40px; }
+  .regions button { height: 40px; }
+  .zoom button { width: 44px; height: 44px; }
+}
+
+/* Small screens: one Region dropdown and a freshness badge instead of a row of region chips */
+@media (max-width: 760px), (max-height: 500px) and (max-width: 960px) {
+  .regions > button[data-region] { display: none; }
+  .region-sel, .map-live {
+    pointer-events: auto; display: inline-flex; align-items: center; flex: none; height: 40px; border: 1px solid var(--border);
+    border-radius: 4px; background: var(--paper); box-shadow: var(--shadow); color: var(--ink);
+  }
+  .region-sel { position: relative; }
+  .region-sel select {
+    appearance: none; -webkit-appearance: none; height: 100%; max-width: 150px; border: 0; background: transparent; color: inherit;
+    font-weight: 700; padding: 2px 30px 0 11px; border-radius: 4px; text-overflow: ellipsis;
+  }
+  .region-sel::after {
+    content: ''; position: absolute; right: 12px; top: 50%; width: 7px; height: 7px; margin-top: -6px; pointer-events: none;
+    border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg);
+  }
+  .map-live { flex: 0 1 auto; min-width: 0; gap: 7px; padding: 2px 11px 0; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; }
+  .map-live #mapLiveText { overflow: hidden; text-overflow: ellipsis; }
+  .map-live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--none); flex: none; }
+  .map-live.ok .dot { background: var(--ok); }
+  .map-live.stale .dot { background: var(--late); }
+  .map-live.error .dot { background: var(--bad); }
+  .map-live.stale, .map-live.error { color: var(--ink); border-color: var(--border-strong); }
+}
+
+/* Portrait phones: the bottom sheet */
+@media (max-width: 559px), (max-width: 760px) and (min-height: 501px) {
+  .progress-overlay { top: calc(56px + env(safe-area-inset-top, 0px)); }
+  .side { height: calc(100% - 52px - env(safe-area-inset-top, 0px)); }
+  .regions, .maptools { top: calc(8px + env(safe-area-inset-top, 0px)); }
+  .settings, .layers { left: 12px; right: 12px; width: auto; max-height: calc(var(--app-h, 100dvh) - 120px); overflow-y: auto; }
+  .layers { position: fixed; top: 60px; }
+
+  /* one header row (logo, search, buttons), a dedicated drag handle, the status moved to the map */
+  .grab { padding: 4px 0 0; }
+  .handle { height: 24px; }
+  .head { grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 8px; align-items: center; }
+  .brand { display: contents; }
+  .head .logo { grid-column: 1; grid-row: 1; }
+  .head .wordmark { display: none; }
+  #searchBox { grid-column: 2; grid-row: 1; }
+  .head-actions { grid-column: 3; grid-row: 1; }
+  .tabs { grid-column: 1 / -1; }
+  .search input { height: 44px; }
+  .search > svg { top: 14px; }
+  .search .clear { top: 6px; }
+  .live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .head.in-detail #searchBox, .head.searching #searchBox { grid-column: 1 / -1; }
+  .head.searching .logo, .head.searching .head-actions { display: none; }
+  .head.searching .q-close { display: block; position: absolute; right: 0; top: 0; height: 44px; padding: 0 4px 0 10px; font-size: 15px; text-decoration: none; }
+  .head.searching .search input { width: calc(100% - 64px); }
+  .head.searching .search .clear { right: 69px; }
+  .body { overscroll-behavior: contain; }
+
+  /* the Explore list starts sooner: one scrolling row of operator chips, a one-line summary, no duplicate density toggle */
+  .filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-top: 10px; }
+  .filters::-webkit-scrollbar { display: none; }
+  .filters > * { flex: none; }
+  .summary > summary #sumText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .listbar .density { display: none; }
+
+  /* a full sheet is a page of its own; the map keeps only its freshness badge */
+  .app[data-sheet-state="full"] .regions,
+  .app[data-sheet-state="full"] .maptools,
+  .app[data-sheet-state="full"] .zoom,
+  .app[data-sheet-state="full"] .mapfoot,
+  .app[data-sheet-state="full"] .playbar,
+  .app[data-sheet-state="full"] .progress-overlay { visibility: hidden; }
+  .app[data-sheet-state="full"] .map-live { visibility: visible; }
+  .app[data-sheet-state="full"] .region-sel { display: none; }
+  /* half open, the sheet already shows the route progress; keep the little map that's left clear */
+  .app[data-sheet-state="half"] .progress-overlay { display: none; }
+  .app[data-sheet-state="full"] .toast { bottom: auto; top: 8px; }
+
+  /* the minimap is a thumbnail until tapped; replay is one compact bar */
+  .minimap { width: 150px; height: 100px; }
+  .minimap.small { width: 44px; height: 44px; }
+  .minimap.small .mm-cap { display: none; }
+  .pb-note { display: none; }
+  .playbar { padding: 8px 10px 6px; }
+
+  /* on a train, the next stop and the timetable come before the charts and figures */
+  .d-num { font-size: clamp(32px, 11vw, 44px); }
+  .d-jump { display: flex; gap: 8px; }
+  .d-jump .btn { flex: 1; justify-content: center; min-height: 44px; }
+  #detail .detail > * { order: 5; }
+  #detail .detail > .d-nav, #detail .detail > .d-peek, #detail .detail > .d-head, #detail .detail > .banner { order: 1; }
+  #detail .detail > .d-sum, #detail .detail > #dProg { order: 2; }
+  #detail .detail > .d-actbar, #detail .detail > .d-jump, #detail .detail > .compare { order: 3; }
+  #detail .detail > .tt, #detail .detail > p.note:last-child { order: 4; }
+}
+@media (max-width: 360px) and (min-height: 501px) {
+  .region-sel select { max-width: 118px; }
+  .head .logo { display: none; }
+  #searchBox { grid-column: 1 / 3; }
+}
+/* short portrait phones: pinch zooms, so drop the secondary zoom buttons rather than let them hit the layer button */
+@media (max-width: 559px) and (max-height: 700px), (max-width: 760px) and (min-height: 501px) and (max-height: 700px) {
+  #zin, #zout, #zfit { display: none; }
+}
+
+/* narrow screens reflow the timetable, station boards and comparisons into two-line cards */
+@media (max-width: 420px) {
+  .tt-head { display: none; }
+  .tt-head, .stop { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr); row-gap: 3px; }
+  .stop .rail { grid-row: 1 / span 2; }
+  .stop .s-name { grid-column: 2 / -1; }
+  .stop .s-t { text-align: left; grid-row: 2; }
+  .stop .s-t:nth-of-type(2) { grid-column: 2; }
+  .stop .s-t.act, .stop .s-t.est { grid-column: 3; text-align: right; }
+  .stop .s-t.act::before { content: 'Actual '; font-weight: 400; font-size: 12px; color: var(--faint); }
+  .stop .s-t .wd { display: inline; margin-right: 4px; }
+  .stop .s-t.act .wd, .stop .s-t.est .wd { display: none; }
+
+  .brow { grid-template-columns: 64px minmax(0, 1fr); row-gap: 4px; align-items: start; }
+  .brow .b-time { grid-row: 1 / span 2; }
+  .brow .b-stat { grid-column: 2; justify-items: start; text-align: left; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+
+  .compare table, .compare thead, .compare tbody { display: block; }
+  .compare tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-top: 1px solid var(--rule); }
+  .compare thead tr { border-top: 0; background: var(--paper-2); }
+  .compare th, .compare td { border-top: 0; }
+  .compare thead th:first-child { display: none; }
+  .compare tbody th { grid-column: 1 / -1; width: auto; padding-bottom: 0; font-size: 12px; }
+}
+
+/* small or short screens: the welcome card keeps its choices and Skip in view */
+@media (max-height: 640px), (max-width: 380px) {
+  .onboard { padding: 10px; }
+  .ob-card { padding: 16px 16px 0; gap: 10px; max-height: calc(100% - 4px); }
+  .ob-card h2 { font-size: 19px; margin-top: 2px; }
+  .ob-card p { font-size: 14px; }
+  .ob-paths button { min-height: 52px; padding: 8px 12px 6px; }
+  .ob-paths small { display: none; }
+  .ob-skip { position: sticky; bottom: 0; justify-self: stretch; min-height: 48px; background: var(--paper); border-top: 1px solid var(--rule); border-radius: 0; }
+}
+
+/* landscape phones use a narrow side panel, so the map and the list are both usable */
+@media (max-height: 500px) and (min-width: 560px) and (max-width: 960px) {
+  :root { --side: 300px; }
+  .head { padding: 8px 14px 0; gap: 6px; }
+  .mark { width: 24px; height: 24px; }
+  .wordmark { font-size: 19px; }
+  .tabs button { height: 36px; font-size: 13px; padding-inline: 4px; }
+  .filters, .listbar, .row, .sec, .intro, .srow, .brow, .detail { padding-inline: 14px; }
+  .summary { margin-inline: 14px; }
+  .sec .list, .board { margin-inline: -14px; }
+  .foot, .est-hint, .minimap { display: none; }
+  .live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .regions { top: 8px; left: 8px; right: 60px; }
+  .maptools { top: 8px; right: 8px; }
+  .progress-overlay { top: 54px; width: calc(100% - 70px); left: 8px; transform: none; }
+  .progress-overlay .po-top span { display: none; }
+  .zoom { right: 8px; bottom: 8px; }
+  #zin, #zout, #zfit { display: none; }
+  .playbar { width: calc(100% - 70px); left: 8px; transform: none; }
+}
+
+@media (max-width: 559px) and (prefers-reduced-motion: reduce), (max-width: 760px) and (min-height: 501px) and (prefers-reduced-motion: reduce) { .side { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .me .pulse { animation: none; opacity: 0; } }
 </style>
 </head>
 <body>
 <div class="app" id="app">
+<div id="sheetSr" class="sr-only" aria-live="polite"></div>
   <aside class="side" id="side" aria-label="Trains and stations">
     <div class="grab" id="grab"><button class="handle" id="handle" type="button" aria-label="Expand panel" aria-expanded="false"><span></span></button></div>
     <div class="head" id="head">
@@ -802,6 +976,7 @@ button:disabled { cursor: default; opacity: .5; }
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
         <input id="q" type="search" role="combobox" aria-expanded="false" aria-controls="sugg" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Train number, route or station" aria-label="Search trains, routes and stations">
         <button class="clear" id="qclear" type="button" aria-label="Clear search" hidden>×</button>
+        <button class="q-close text-btn" id="qClose" type="button">Close</button>
         <div class="sugg" id="sugg" role="listbox" aria-label="Suggestions" hidden></div>
       </div>
       <div class="tabs" id="tabs" role="tablist" aria-label="Choose what to do">
@@ -1159,7 +1334,8 @@ const store = {
 
 /* ---------------- preferences ---------------- */
 const mqReduce = matchMedia('(prefers-reduced-motion: reduce)');
-const mqMobile = matchMedia('(max-width: 760px)');
+/* The bottom sheet is for portrait phones. Landscape phones (short, 560px or wider) get the side panel. */
+const mqMobile = matchMedia('(max-width: 559px), (max-width: 760px) and (min-height: 501px)');
 const prefs = {
   theme: store.get('theme', 'auto'),
   motion: store.get('motion', 'system'),
@@ -1493,7 +1669,7 @@ function viewBox() {
   const { w, h } = mapSize();
   const mobile = mqMobile.matches;
   const pad = mobile ? 12 : 24;
-  const top = pad + (mobile ? 40 : 44) + (!progEl.hidden ? (mobile ? 58 : 66) : 0);
+  const top = pad + (mobile ? 40 : 44) + (progEl.getClientRects().length ? (mobile ? 58 : 66) : 0);   // hidden by CSS on a half-open phone sheet
   const bottom = pad + (mobile ? sheetCover() : 0) + (!$('#playbar').hidden ? 90 : 0);
   return { w, h, left: pad, top, right: pad + (mobile ? 46 : 52), bottom };
 }
@@ -1619,7 +1795,16 @@ const REGIONS = [
   { id: 'midwest', label: 'Midwest', b: [[-96.0, 37.0], [-81.0, 46.2]] },
   { id: 'pnw', label: 'Pacific Northwest', b: [[-124.6, 43.6], [-116.8, 49.4]] },
 ];
-$('#regions').innerHTML = REGIONS.map((r) => `<button type="button" data-region="${r.id}" aria-pressed="false"${r.title ? ` title="${esc(r.title)}"` : ''}>${esc(r.label)}</button>`).join('');
+$('#regions').innerHTML = REGIONS.map((r) => `<button type="button" data-region="${r.id}" aria-pressed="false"${r.title ? ` title="${esc(r.title)}"` : ''}>${esc(r.label)}</button>`).join('')
+  // phones get one dropdown instead of the chip row, plus a badge saying how fresh the positions are
+  + `<label class="region-sel"><span class="sr-only">Jump to a region</span><select id="regionSel"><option value="" hidden>Region</option>${REGIONS.map((r) => `<option value="${r.id}">${esc(r.label)}</option>`).join('')}</select></label>`
+  + `<button type="button" class="map-live" id="mapLive"><span class="dot"></span><span id="mapLiveText">Loading</span></button>`;
+$('#regionSel').addEventListener('change', (e) => {
+  if (!e.target.value) return;
+  setFollow(false);
+  goRegion(e.target.value);
+});
+$('#mapLive').addEventListener('click', () => { if (!loading) refresh(); });
 $('#regions').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-region]');
   if (!b) return;
@@ -1637,7 +1822,8 @@ function goRegion(id, instant = false) {
 }
 function setActiveRegion(id) {
   activeRegion = id;
-  $$('#regions button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.region === id)));
+  $$('#regions button[data-region]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.region === id)));
+  $('#regionSel').value = id || '';
 }
 function saveView() {
   if (!fitted) return;
@@ -2416,6 +2602,7 @@ let lastTick = 0, lastRouteDraw = 0;
 function tick(now) {
   requestAnimationFrame(tick);
   if (replay.active) replayTick(now);
+  if (mqMobile.matches && sheet.state === 'full' && !drag && !bdrag) return;   // the map is hidden behind the sheet
   const gap = reduceMotion ? 5000 : T.k >= 6 ? 33 : 120;   // closer zoom shows more motion, so update more often
   if (lastTick && now - lastTick < gap) return;
   const dt = lastTick ? (now - lastTick) / 1000 : 0;
@@ -2746,15 +2933,18 @@ function updateMinimap(force) {
   const el = $('#minimap');
   const t = selectedId && byId.get(selectedId);
   const show = !!(t && t.p && t.pathDone && (following || T.k >= 40) && !replay.active && (t.pathDone.length + t.pathAhead.length));
-  if (!show) { if (!el.hidden) el.hidden = true; return; }
+  if (!show) { if (!el.hidden) el.hidden = true; minimapOpen = false; return; }
   const wasHidden = el.hidden;
   el.hidden = false;
+  const small = mqMobile.matches && !minimapOpen;
+  el.classList.toggle('small', small);
+  el.setAttribute('aria-label', small ? 'Show the whole route in a small overview map' : 'Zoom out to the whole route');
   const w = el.clientWidth || 190, h = el.clientHeight || 130;
   const key = t.id + ':' + w + ':' + (t.pathDone.length + t.pathAhead.length) + ':' + document.documentElement.getAttribute('data-theme');
   if (force || wasHidden || el.__key !== key) {
     el.__key = key;
     const all = { type: 'MultiLineString', coordinates: t.pathDone.concat(t.pathAhead) };
-    const mp = d3.geoAlbers().rotate([96, 0]).parallels([29.5, 45.5]).fitExtent([[12, 10], [w - 12, h - 24]], all);
+    const mp = d3.geoAlbers().rotate([96, 0]).parallels([29.5, 45.5]).fitExtent(small ? [[6, 6], [w - 6, h - 6]] : [[12, 10], [w - 12, h - 24]], all);
     mp.clipExtent([[0, 0], [w, h]]);
     el.__proj = mp;
     const path = d3.geoPath(mp);
@@ -2767,7 +2957,10 @@ function updateMinimap(force) {
   const c = el.querySelector('.mm-train');
   if (p) { c.setAttribute('cx', p[0].toFixed(1)); c.setAttribute('cy', p[1].toFixed(1)); c.setAttribute('class', 'mm-train sig-' + t.sig); }
 }
+let minimapOpen = false;
 $('#minimap').onclick = () => {
+  if (mqMobile.matches && !minimapOpen) { minimapOpen = true; updateMinimap(true); return; }
+  minimapOpen = false;
   const t = selectedId && byId.get(selectedId);
   if (!t || !t.pathDone) return;
   setFollow(false);
@@ -2920,9 +3113,13 @@ function flyToStation(st) {
 }
 function goBack() {
   if (!nav.length) return;
-  nav.pop();
+  const left = nav.pop();
+  const hadFocus = sideEl.contains(document.activeElement);
   if (following) setFollow(false);
   showScreen({ restore: true });
+  if (!hadFocus) return;
+  const row = left && left.type === 'train' ? $(`[data-id="${CSS.escape(left.id)}"]`, bodyEl) : null;
+  (row && row.getClientRects().length ? row : qEl).focus({ preventScroll: !!row });
 }
 function showScreen({ reset = false, restore = false } = {}) {
   const s = topScreen();
@@ -3309,6 +3506,14 @@ function renderSugg() {
   const show = !!html && document.activeElement === qEl;
   suggEl.hidden = !show;
   qEl.setAttribute('aria-expanded', String(show));
+  fitSugg();
+}
+/* Phones: suggestions end above the keyboard and scroll inside, rather than running under it. */
+function fitSugg() {
+  if (!mqMobile.matches || suggEl.hidden) { suggEl.style.maxHeight = ''; return; }
+  const vv = window.visualViewport;
+  const bottom = vv ? vv.height + vv.offsetTop : window.innerHeight;
+  suggEl.style.maxHeight = Math.max(140, bottom - qEl.getBoundingClientRect().bottom - 16) + 'px';
 }
 function suggOptHTML(it, s) {
   if (it.kind === 'train') {
@@ -3332,6 +3537,23 @@ function setActiveSugg(i) {
     if (o) o.scrollIntoView({ block: 'nearest' });
   } else qEl.removeAttribute('aria-activedescendant');
 }
+const mqCompact = matchMedia('(max-width: 760px), (max-height: 500px) and (max-width: 960px)');
+mqCompact.addEventListener('change', () => syncSearchMode());
+/* Phones: while searching, the search row drops the logo and buttons and offers Close. */
+function syncSearchMode() {
+  $('#head').classList.toggle('searching', mqMobile.matches && document.activeElement === qEl);
+  qEl.placeholder = mqCompact.matches ? 'Train or station' : 'Train number, route or station';
+}
+qEl.addEventListener('focus', syncSearchMode);
+qEl.addEventListener('blur', () => setTimeout(syncSearchMode, 120));
+$('#qClose').addEventListener('pointerdown', (e) => e.preventDefault());   // keep focus until the click lands
+$('#qClose').onclick = () => {
+  closeSugg();
+  qEl.blur();
+  syncSearchMode();
+  if (mqMobile.matches && !topScreen()) settleSheet('half');
+};
+syncSearchMode();
 function closeSugg() {
   suggEl.hidden = true;
   qEl.setAttribute('aria-expanded', 'false');
@@ -3601,6 +3823,7 @@ function renderDetail() {
         <button type="button" class="btn" id="follow" aria-pressed="${following}" title="Zoom in close and keep this train centered">${following ? 'Following' : 'Follow'}</button>
         <button type="button" class="btn" id="compareBtn" aria-pressed="${compareId === t.id}" title="Pin this train, then open another to compare them">${compareId === t.id ? 'Pinned for comparison' : 'Compare'}</button>
       </div>
+      <div class="d-jump" role="group" aria-label="Jump to"><button type="button" class="btn" data-jump=".tt">Stops</button><button type="button" class="btn" data-jump=".facts">Details</button></div>
       ${compareHTML(t)}
       <dl class="facts">
         <div><dt>Speed</dt><dd>${moving ? Math.round(t.speed) + ' mph' : 'Stopped'}<small>as last reported</small></dd></div>
@@ -3640,6 +3863,15 @@ function renderDetail() {
   }
   const more = $('#earlier');
   if (more) more.onclick = () => { showEarlier = true; renderDetail(); };
+  $$('[data-jump]', box).forEach((b) => {
+    b.onclick = () => {
+      const el = $(b.dataset.jump, box);
+      if (!el) return;
+      if (mqMobile.matches && sheet.state !== 'full') setSheet('full');
+      const top = el.getBoundingClientRect().top - bodyEl.getBoundingClientRect().top + bodyEl.scrollTop - 8;
+      bodyEl.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
+    };
+  });
   wireChart(box);
 }
 
@@ -4199,13 +4431,22 @@ function drawNetwork() {
 /* ---------------- phones: a draggable sheet with three positions ---------------- */
 const sheet = { state: ['collapsed', 'half', 'full'].includes(store.get('sheet', 'half')) ? store.get('sheet', 'half') : 'half', y: 0 };
 const grabEl = $('#grab');
+/* Collapsed shows the search row, or on a train or station the line that names it, measured rather than guessed. */
+function peekHeight() {
+  const s = topScreen();
+  const el = s ? $(s.type === 'train' ? '#detail .d-peek' : '#station .st-head h2') : $('#searchBox');
+  if (el && el.getClientRects().length) {
+    const inBody = bodyEl.contains(el);
+    const y = el.getBoundingClientRect().bottom - sideEl.getBoundingClientRect().top + (inBody ? bodyEl.scrollTop : 0);
+    if (y > 20) return Math.round(y + 12 + (parseFloat(getComputedStyle(sideEl).paddingBottom) || 0));   // clear the home indicator
+  }
+  return grabEl.offsetHeight + $('#head').offsetHeight + (s ? 100 : 0);
+}
 function sheetHeights() {
   const H = sideEl.offsetHeight;
   const appH = appEl.clientHeight;
-  const peek = topScreen()
-    ? grabEl.offsetHeight + $('#searchBox').offsetHeight + 28 + 100
-    : grabEl.offsetHeight + $('#brand').offsetHeight + $('#live').offsetHeight + $('#searchBox').offsetHeight + 30;
-  return { full: 0, half: Math.max(0, H - Math.round(appH * 0.5)), collapsed: Math.max(0, H - peek) };
+  const half = Math.max(0, H - Math.round(appH * 0.5));
+  return { full: 0, half, collapsed: Math.max(half, H - peekHeight()) };
 }
 function sheetCover() {
   if (!mqMobile.matches) return 0;
@@ -4215,7 +4456,7 @@ function applySheet(y, animate) {
   sheet.y = y;
   sideEl.classList.toggle('dragging', !animate);
   sideEl.style.setProperty('--sheet-y', y + 'px');
-  appEl.style.setProperty('--sheet-cover', Math.min(sheetCover(), appEl.clientHeight * 0.55) + 'px');
+  appEl.style.setProperty('--sheet-cover', sheetCover() + 'px');
 }
 function setSheet(state, animate = true) {
   if (!mqMobile.matches) return;
@@ -4224,19 +4465,30 @@ function setSheet(state, animate = true) {
   const h = sheetHeights();
   applySheet(h[state], animate);
   bodyEl.style.paddingBottom = h[state] + 'px';
+  appEl.dataset.sheetState = state;
   $('#handle').setAttribute('aria-expanded', String(state === 'full'));
-  $('#handle').setAttribute('aria-label', state === 'full' ? 'Collapse panel' : 'Expand panel');
+  $('#handle').setAttribute('aria-label', state === 'full' ? 'Shrink panel to half height' : 'Expand panel');
+  $('#sheetSr').textContent = state === 'full' ? 'Panel fully expanded' : state === 'half' ? 'Panel half expanded' : 'Panel collapsed';
   updateScale();
+  fitSugg();
+}
+/* After a drag or tap moves the sheet, bring the selected train back into view if the sheet now hides it. */
+function settleSheet(state) {
+  const changed = state !== sheet.state;
+  setSheet(state);
+  const t = selectedId && byId.get(selectedId);
+  if (changed && state !== 'full' && t && !following) panTo(t, false);
 }
 function sheetFor() {
   if (!mqMobile.matches) return;
   setSheet(sheet.state === 'half' ? 'half' : 'half');
 }
-const cycleSheet = () => setSheet(sheet.state === 'collapsed' ? 'half' : sheet.state === 'half' ? 'full' : 'collapsed');
+const cycleSheet = () => settleSheet(sheet.state === 'half' ? 'full' : 'half');
 let drag = null;
 function dragStart(e) {
   if (!mqMobile.matches || e.button > 0) return;
   if (e.target.closest('input, select, a, .tabs, .sugg, .settings, .head-actions')) return;
+  try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
   drag = { id: e.pointerId, y0: e.clientY, s0: sheet.y, moved: false, lastY: e.clientY, lastT: performance.now(), v: 0, onHandle: !!e.target.closest('#handle') };
 }
 grabEl.addEventListener('pointerdown', dragStart);
@@ -4259,19 +4511,71 @@ const endDrag = (e) => {
   const d = drag;
   drag = null;
   if (!d.moved) { if (d.onHandle && e.type === 'pointerup') cycleSheet(); return; }
+  settleSheet(snapTarget(d.v));
+};
+/* Where a released sheet settles: the next position in the flick's direction, or the nearest one. */
+function snapTarget(v) {
   const h = sheetHeights();
   const order = [['full', h.full], ['half', h.half], ['collapsed', h.collapsed]];
-  let target;
-  if (Math.abs(d.v) > 0.45) {
-    const found = d.v > 0 ? order.find(([, y]) => y > sheet.y + 4) : order.slice().reverse().find(([, y]) => y < sheet.y - 4);
-    target = found ? found[0] : d.v > 0 ? 'collapsed' : 'full';
-  } else target = order.reduce((b, o) => (Math.abs(o[1] - sheet.y) < Math.abs(b[1] - sheet.y) ? o : b))[0];
-  setSheet(target);
+  if (Math.abs(v) > 0.45) {
+    const found = v > 0 ? order.find(([, y]) => y > sheet.y + 4) : order.slice().reverse().find(([, y]) => y < sheet.y - 4);
+    return found ? found[0] : v > 0 ? 'collapsed' : 'full';
+  }
+  return order.reduce((b, o) => (Math.abs(o[1] - sheet.y) < Math.abs(b[1] - sheet.y) ? o : b))[0];
+}
+/* swiping the panel's content moves the sheet when the content can't scroll that way, like a native sheet:
+   up expands it until it's full, and down from the very top shrinks it. Sideways swipes stay with chip rows. */
+let bdrag = null;
+bodyEl.addEventListener('touchstart', (e) => {
+  bdrag = null;
+  if (!mqMobile.matches || e.touches.length !== 1) return;
+  const p = e.touches[0];
+  bdrag = { x0: p.clientX, y0: p.clientY, s0: 0, mode: null, lastY: p.clientY, lastT: performance.now(), v: 0 };
+}, { passive: true });
+bodyEl.addEventListener('touchmove', (e) => {
+  if (!bdrag) return;
+  const p = e.touches[0];
+  const dx = p.clientX - bdrag.x0, dy = p.clientY - bdrag.y0;
+  if (!bdrag.mode) {
+    if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+    const take = Math.abs(dy) > Math.abs(dx) && e.cancelable
+      && (dy < 0 ? sheet.state !== 'full' : bodyEl.scrollTop <= 0 && sheet.state !== 'collapsed');
+    if (!take) { bdrag = null; return; }
+    Object.assign(bdrag, { mode: 'sheet', y0: p.clientY, s0: sheet.y });
+  }
+  e.preventDefault();
+  const now = performance.now();
+  bdrag.v = (p.clientY - bdrag.lastY) / Math.max(1, now - bdrag.lastT);
+  bdrag.lastY = p.clientY;
+  bdrag.lastT = now;
+  applySheet(Math.max(0, Math.min(sheetHeights().collapsed, bdrag.s0 + p.clientY - bdrag.y0)), false);
+}, { passive: false });
+const endBodyDrag = () => {
+  const d = bdrag;
+  bdrag = null;
+  if (d && d.mode) settleSheet(snapTarget(d.v));
 };
+bodyEl.addEventListener('touchend', endBodyDrag);
+bodyEl.addEventListener('touchcancel', endBodyDrag);
 document.addEventListener('pointerup', endDrag);
 document.addEventListener('pointercancel', endDrag);
 $('#handle').addEventListener('click', (e) => { if (e.detail === 0) cycleSheet(); });   // keyboard activation
+/* The on-screen keyboard shrinks only the visual viewport; size the app to it while a field has focus. */
+const vv = window.visualViewport;
+if (vv) {
+  const syncViewport = () => {
+    const typing = mqMobile.matches && document.activeElement && document.activeElement.matches('input:not([type=checkbox]):not([type=radio]), textarea, select');
+    if (typing && vv.height < window.innerHeight - 80) {
+      document.documentElement.style.setProperty('--app-h', vv.height + 'px');
+      window.scrollTo(0, 0);
+    } else document.documentElement.style.removeProperty('--app-h');
+  };
+  vv.addEventListener('resize', () => { syncViewport(); fitSugg(); });
+  document.addEventListener('focusout', () => setTimeout(syncViewport, 50));
+}
+sideEl.addEventListener('transitionend', (e) => { if (e.target === sideEl) fitSugg(); });
 mqMobile.addEventListener('change', () => {
+  syncSearchMode();
   if (mqMobile.matches) setSheet(sheet.state, false);
   else { sideEl.style.removeProperty('--sheet-y'); appEl.style.setProperty('--sheet-cover', '0px'); bodyEl.style.paddingBottom = ''; }
 });
@@ -4517,6 +4821,24 @@ function updateStatusText() {
   } else {
     txt.textContent = `Live. Updated ${hm(lastOk)}, next in ${secs} s`;
   }
+  updateMapLive(el.classList.contains('error'), hm);
+}
+/* The map's freshness badge: live, stale or offline, without the per-second countdown. */
+function updateMapLive(error, hm) {
+  const b = $('#mapLive');
+  const age = lastOk ? Date.now() - lastOk : Infinity;
+  let kind, txt, full;
+  if (error) { kind = 'error'; txt = 'Offline · retry'; full = lastOk ? `Offline. Last update ${hm(lastOk)}.` : "Can't reach live data."; }
+  else if (!lastOk) { kind = 'loading'; txt = 'Loading'; full = 'Loading live trains.'; }
+  else if (age > 3 * REFRESH_S * 1000) { kind = 'stale'; txt = `Stale · ${Math.round(age / 60000)} min old`; full = `Positions are ${Math.round(age / 60000)} minutes old.`; }
+  else { kind = 'ok'; txt = `Live · ${hm(lastOk)}`; full = `Live. ${plural(trains.filter(baseVisible).length, 'train')} on the map, updated ${hm(lastOk)}.`; }
+  const key = kind + txt + full;
+  if (b.__key === key) return;
+  b.__key = key;
+  b.className = 'map-live ' + kind;
+  $('#mapLiveText').textContent = txt;
+  b.setAttribute('aria-label', full + ' Refresh now');
+  b.title = full + ' Select to refresh now.';
 }
 function showError(err) {
   const box = $('#errorBox');
