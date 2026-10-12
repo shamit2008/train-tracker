@@ -8,6 +8,9 @@
 # Wrangler (Cloudflare) local state
 .wrangler/
 
+# Local accounts database used by `npm run dev` in worker/
+.accounts-dev.sqlite*
+
 # macOS / editor clutter
 .DS_Store
 node_modules/

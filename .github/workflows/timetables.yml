@@ -1,0 +1,39 @@
+# Rebuilds data/timetables.json from the railroads' public timetable feeds and commits it when it changes.
+# Amtrak republishes its feed weekly, covering about a week ahead, so this runs every Monday.
+# Needs one repository secret, CALTRAIN_511_KEY (Settings > Secrets and variables > Actions); without it,
+# Caltrain keeps its previous timetable and the run is marked as failed.
+name: Refresh timetables
+
+on:
+  schedule:
+    - cron: '23 10 * * 1'   # Mondays 10:23 UTC
+  workflow_dispatch:         # or run it by hand from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the timetables
+        id: build
+        continue-on-error: true   # a railroad that fails keeps its old timetable; commit the rest anyway
+        run: node worker/build-timetables.mjs
+        env:
+          CALTRAIN_511_KEY: ${{ secrets.CALTRAIN_511_KEY }}
+      - name: Commit if anything changed
+        run: |
+          git add data/timetables.json
+          if git diff --cached --quiet; then echo "No changes."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Refresh timetables"
+          git push
+      - name: Flag a railroad that failed
+        if: steps.build.outcome == 'failure'
+        run: echo "::error::Some timetables could not be refreshed. See the Build the timetables step." && exit 1
