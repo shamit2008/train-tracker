@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "node dev.mjs",
+    "test": "node --test --disable-warning=ExperimentalWarning",
     "schedules": "node build-schedules.mjs",
+    "timetables": "node build-timetables.mjs",
     "deploy": "node publish.mjs"
   },
   "devDependencies": {

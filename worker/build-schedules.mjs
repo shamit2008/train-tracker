@@ -1,131 +1,113 @@
 #!/usr/bin/env node
-// Downloads Metrolink's and Caltrain's static GTFS and boils them down to src/schedules.json:
-// station names and positions, route names, and each trip's stops with scheduled times.
+// Downloads the static GTFS of every railroad in src/agencies.js and boils it down to src/schedules.json:
+// station names and positions, line names, and each train's stops with scheduled times.
 // The live feeds only carry trip and stop IDs, so the worker uses this to name and time them.
 //
-//   node build-schedules.mjs        (then redeploy: npx wrangler deploy)
+//   node build-schedules.mjs        (or: npm run schedules; then redeploy)
 //
-// Rerun after either railroad publishes a new timetable. Reads CALTRAIN_511_KEY from ../.env or the
-// environment (511 needs a token even for static data). The output holds public timetable data only.
-import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
+// Rerun after a railroad publishes a new timetable. A download that needs a key (Caltrain's, from 511) reads it
+// from ../.env or the environment. If a railroad fails, its previous schedule is kept. The output holds public
+// timetable data only.
+//
+// Output, per railroad id:
+//   { tz, stations: { code: [name, lat, lon] }, stops: { stop_id: code }, routes: { route_id: name },
+//     runs: [[route_id, headsign, number, [[stop_id, arrive, depart?], …], [stop_sequence, …]?]],
+//     trips: { trip_id: run index }, nums: { number: [run index, …] } }
+// Times are seconds after "noon minus 12 hours" on the service day. Trips with identical stops and times (the
+// same train on different service calendars) share one run. stop_sequence is only listed when it isn't 1, 2, 3….
+import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { secs, downloadFirst, readGtfs, envKey, onlyRoutes } from './local/gtfs.mjs';
+import { AGENCIES } from './src/agencies.js';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
-
-async function key(name) {
-  if (process.env[name]) return process.env[name];
-  try {
-    const text = await readFile(path.join(dir, '..', '.env'), 'utf8');
-    const m = text.match(new RegExp(`^\\s*${name}\\s*=\\s*(.*?)\\s*$`, 'm'));
-    if (m) return m[1].replace(/^(['"])(.*)\1$/, '$2');
-  } catch { /* no .env */ }
-  return '';
-}
-
-function parseCsv(text) {
-  const rows = [];
-  let row = [], field = '', q = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (q) {
-      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
-      else if (c === '"') q = false;
-      else field += c;
-    } else if (c === '"') q = true;
-    else if (c === ',') { row.push(field); field = ''; }
-    else if (c === '\n' || c === '\r') {
-      if (c === '\r' && text[i + 1] === '\n') i++;
-      row.push(field); field = '';
-      if (row.length > 1 || row[0] !== '') rows.push(row);
-      row = [];
-    } else field += c;
-  }
-  if (field !== '' || row.length) { row.push(field); rows.push(row); }
-  const head = rows.shift().map((h) => h.replace(/^﻿/, '').trim());
-  return rows.map((r) => Object.fromEntries(head.map((h, i) => [h, (r[i] ?? '').trim()])));
-}
-
-const secs = (hms) => { const [h, m, s] = hms.split(':').map(Number); return h * 3600 + m * 60 + (s || 0); };
+const OUT = path.join(dir, 'src', 'schedules.json');
 const round = (x) => Math.round(Number(x) * 1e5) / 1e5;
-
-async function download(url, headers = {}) {
-  const res = await fetch(url, { headers, redirect: 'follow' });
-  if (!res.ok) throw new Error(`${url.replace(/api_key=[^&]+/, 'api_key=…')}: HTTP ${res.status}`);
-  return Buffer.from(await res.arrayBuffer());
-}
-
-async function readGtfs(zip) {
-  const tmp = await mkdtemp(path.join(tmpdir(), 'gtfs-'));
-  try {
-    await writeFile(path.join(tmp, 'feed.zip'), zip);
-    execFileSync('unzip', ['-oq', path.join(tmp, 'feed.zip'), '-d', tmp]);
-    const read = async (f) => parseCsv(await readFile(path.join(tmp, f), 'utf8'));
-    return { stops: await read('stops.txt'), routes: await read('routes.txt'), trips: await read('trips.txt'), stopTimes: await read('stop_times.txt') };
-  } finally {
-    await rm(tmp, { recursive: true, force: true });
-  }
-}
-
-/* prefix: the operator's station-code prefix. routeName/stationName tidy the published names. */
-function compact(g, { prefix, routeName, stationOf, stationName = (n) => n }) {
-  const stations = {}, stops = {};
-  const byId = new Map(g.stops.map((s) => [s.stop_id, s]));
-  for (const s of g.stops) {
-    const st = stationOf(s, byId);
-    if (!st) continue;
-    const code = prefix + st.stop_id;
-    stops[s.stop_id] = code;
-    stations[code] ||= [stationName(st.stop_name), round(st.stop_lat), round(st.stop_lon)];
-  }
-  const routes = Object.fromEntries(g.routes.map((r) => [r.route_id, routeName(r)]));
-  const trips = {};
-  for (const t of g.trips) trips[t.trip_id] = [t.route_id, t.trip_headsign || '', t.trip_short_name || t.trip_id, []];
-  const sorted = g.stopTimes.slice().sort((a, b) => (a.trip_id < b.trip_id ? -1 : a.trip_id > b.trip_id ? 1 : a.stop_sequence - b.stop_sequence));
-  for (const st of sorted) {
-    const t = trips[st.trip_id];
-    if (!t || !stops[st.stop_id]) continue;
-    const arr = secs(st.arrival_time || st.departure_time), dep = secs(st.departure_time || st.arrival_time);
-    t[3].push(arr === dep ? [st.stop_id, arr] : [st.stop_id, arr, dep]);
-  }
-  for (const id of Object.keys(trips)) if (trips[id][3].length < 2) delete trips[id];
-  return { stations, stops, routes, trips };
-}
-
-const caltrainKey = await key('CALTRAIN_511_KEY');
-if (!caltrainKey) { console.error('No CALTRAIN_511_KEY found in ../.env or the environment.'); process.exit(1); }
-
-const [ml, ct] = await Promise.all([
-  download('https://metrolinktrains.com/globalassets/about/gtfs/gtfs.zip').then(readGtfs),
-  download(`https://api.511.org/transit/datafeeds?api_key=${encodeURIComponent(caltrainKey)}&operator_id=CT`).then(readGtfs),
-]);
-
-const out = {
-  built: new Date().toISOString().slice(0, 10),
-  Metrolink: compact(ml, {
-    prefix: 'ML-',
-    // "Metrolink Inland Empire-Orange County Line" reads better than the route_id "Inland Emp.-Orange Co. Line"
-    routeName: (r) => (r.route_long_name || r.route_id).replace(/^Metrolink\s+/, ''),
-    stationOf: (s) => s,
-  }),
-  Caltrain: compact(ct, {
-    prefix: 'CT-',
-    routeName: (r) => {
-      const base = (r.route_short_name || r.route_id).replace(/\s+Week(day|end)$/i, '');
-      return /south county/i.test(base) ? 'South County Connector' : 'Caltrain ' + base;
-    },
-    stationName: (n) => n.replace(/\s+(Caltrain\s+)?Station$/i, ''),
-    // Caltrain lists each platform as its own stop; trains are shown at the parent station
-    stationOf: (s, byId) => (s.location_type === '1' ? s : s.parent_station ? byId.get(s.parent_station) : s),
-  }),
+const isRail = (r) => r.route_type === '2';
+/* "Southbound to Miami Airport" -> "Miami Airport"; "BALTIMORE" -> "Baltimore" */
+const headsign = (h = '') => {
+  const s = h.replace(/^(north|south|east|west)bound\s+to\s+/i, '').trim();
+  return s === s.toUpperCase() ? s.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase()) : s;
 };
 
-const file = path.join(dir, 'src', 'schedules.json');
-await writeFile(file, JSON.stringify(out));
-for (const op of ['Metrolink', 'Caltrain']) {
-  const o = out[op];
-  console.log(`${op}: ${Object.keys(o.stations).length} stations, ${Object.keys(o.routes).length} routes, ${Object.keys(o.trips).length} trips`);
+function compact(g, a) {
+  const o = a.gtfs;
+  const keepRoute = o.keepRoute || isRail;
+  const tz = (g.agency[0] && g.agency[0].agency_timezone) || 'America/New_York';
+  const byId = new Map(g.stops.map((s) => [s.stop_id, s]));
+  // platforms are shown at their station
+  const stationOf = (s) => (s.parent_station && byId.has(s.parent_station) ? byId.get(s.parent_station) : s);
+
+  const routes = {}, routeRow = new Map(g.routes.map((r) => [r.route_id, r]));
+  for (const r of g.routes) if (keepRoute(r)) routes[r.route_id] = (o.routeName ? o.routeName(r) : (r.route_long_name || r.route_short_name || r.route_id)).trim();
+
+  const stations = {}, stops = {};
+  const codeFor = (stopId) => {
+    if (stopId in stops) return stops[stopId];
+    const raw = byId.get(stopId);
+    if (!raw) return (stops[stopId] = null);
+    const st = stationOf(raw);
+    const code = a.id + '-' + st.stop_id;
+    stations[code] ||= [(o.stationName ? o.stationName(st.stop_name) : st.stop_name).trim(), round(st.stop_lat), round(st.stop_lon)];
+    return (stops[stopId] = code);
+  };
+
+  const timesByTrip = new Map();
+  for (const st of g.stop_times) {
+    if (!timesByTrip.has(st.trip_id)) timesByTrip.set(st.trip_id, []);
+    timesByTrip.get(st.trip_id).push(st);
+  }
+
+  const runs = [], runIdx = new Map(), trips = {}, nums = {};
+  for (const t of g.trips) {
+    if (!(t.route_id in routes)) continue;
+    const times = (timesByTrip.get(t.trip_id) || []).sort((x, y) => x.stop_sequence - y.stop_sequence);
+    const list = [], seqs = [];
+    for (const st of times) {
+      if (!codeFor(st.stop_id)) continue;
+      const arr = secs(st.arrival_time || st.departure_time), dep = secs(st.departure_time || st.arrival_time);
+      list.push(arr === dep ? [st.stop_id, arr] : [st.stop_id, arr, dep]);
+      seqs.push(Number(st.stop_sequence));
+    }
+    if (list.length < 2) continue;
+    const num = String(o.num ? o.num(t, { route: routeRow.get(t.route_id), dep: list[0][2] ?? list[0][1] }) : t.trip_short_name || t.trip_id).trim();
+    const run = [t.route_id, headsign(t.trip_headsign), num, list];
+    if (seqs.some((s, i) => s !== i + 1)) run.push(seqs);
+    const key = JSON.stringify(run);
+    if (!runIdx.has(key)) { runIdx.set(key, runs.length); runs.push(run); (nums[num] ||= []).push(runs.length - 1); }
+    if (a.joinBy !== 'entity') trips[t.trip_id] = runIdx.get(key);   // matched by train number instead
+  }
+  // only the stops trains use
+  for (const id of Object.keys(stops)) if (!stops[id]) delete stops[id];
+  return { tz, stations, stops, routes, runs, trips, nums };
 }
-console.log(`Wrote ${path.relative(process.cwd(), file)} (${Math.round(JSON.stringify(out).length / 1024)} KB)`);
+
+let previous = {};
+try { previous = JSON.parse(await readFile(OUT, 'utf8')); } catch { /* first run */ }
+
+const out = { built: new Date().toISOString().slice(0, 10) };
+let failures = 0;
+for (const a of AGENCIES) {
+  try {
+    let url = a.gtfs.url;
+    if (typeof url === 'function') {
+      const key = await envKey(a.key, dir);
+      if (!key) throw new Error(`no ${a.key} in ../.env or the environment`);
+      url = url(key);
+    }
+    const g = await readGtfs(await downloadFirst(url), { inner: a.gtfs.inner, keep: onlyRoutes(a.gtfs.keepRoute || isRail) });
+    const s = compact(g, a);
+    if (!s.runs.length) throw new Error('no trains in the timetable');
+    out[a.id] = s;
+    console.log(`${a.provider}: ${Object.keys(s.stations).length} stations, ${Object.keys(s.routes).length} lines, ${s.runs.length} runs, ${Math.round(JSON.stringify(s).length / 1024)} KB`);
+  } catch (err) {
+    failures++;
+    if (previous[a.id]) { out[a.id] = previous[a.id]; console.warn(`${a.provider}: ${err.message.replace(/api_key=[^&\s]+/, 'api_key=…')}. Kept the previous schedule.`); }
+    else console.warn(`${a.provider}: ${err.message.replace(/api_key=[^&\s]+/, 'api_key=…')}. Left out.`);
+  }
+}
+
+await writeFile(OUT, JSON.stringify(out));
+console.log(`Wrote ${path.relative(process.cwd(), OUT)} (${Math.round(JSON.stringify(out).length / 1024)} KB)`);
+if (failures) process.exitCode = 2;

@@ -1,52 +1,52 @@
 /* A small GTFS-Realtime decoder: just the fields Trackside reads from VehiclePositions and TripUpdates.
    Field numbers follow https://gtfs.org/realtime/reference/ (gtfs-realtime.proto). */
 
-function reader(buf) {
+/* Decodes one message from buf[start, end) by its spec: { field: [name, kind, subSpec, repeated] }, where kind is
+   'msg', 'str', 'u' (unsigned varint), 'i32' (signed int32), 'f' (float or double) or 'raw' (the bytes).
+   A plain loop, not a generator: feeds run to hundreds of kilobytes and Workers bill CPU time. */
+const utf8 = new TextDecoder();
+function message(buf, spec, start = 0, end = buf.length) {
   const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
-  let pos = 0;
-  // Varints come back as { lo, num }: lo is the low 32 bits (for int32 fields, which may be negative),
-  // num the full value as a Number (exact up to 2^53, plenty for timestamps).
+  const out = {};
+  let pos = start, lo = 0;
+  // A varint as a Number (exact up to 2^53, plenty for timestamps); its low 32 bits are left in `lo`, for int32
+  // fields, whose negatives arrive as 10-byte varints too big for a Number to hold exactly.
   const varint = () => {
-    let lo = 0, num = 0, shift = 0, b;
+    let num = 0, mul = 1, shift = 0, b;
+    lo = 0;
     do {
-      if (pos >= buf.length) throw new Error('truncated varint');
+      if (pos >= end) throw new Error('truncated varint');
       b = buf[pos++];
       if (shift < 32) lo |= (b & 0x7f) << shift;
-      num += (b & 0x7f) * 2 ** shift;
-      shift += 7;
+      num += (b & 0x7f) * mul;
+      mul *= 128; shift += 7;
     } while (b & 0x80);
-    return { lo: lo | 0, num };
+    return num;
   };
-  return {
-    done: () => pos >= buf.length,
-    /* Yields [field, wireType, value]: value is a varint, a float (fixed32), a double (fixed64) or bytes. */
-    *fields() {
-      while (pos < buf.length) {
-        const key = varint().num, f = Math.floor(key / 8), wt = key & 7;
-        if (wt === 0) yield [f, wt, varint()];
-        else if (wt === 1) { const v = view.getFloat64(pos, true); pos += 8; yield [f, wt, v]; }
-        else if (wt === 2) { const n = varint().num; const v = buf.subarray(pos, pos + n); pos += n; yield [f, wt, v]; }
-        else if (wt === 5) { const v = view.getFloat32(pos, true); pos += 4; yield [f, wt, v]; }
-        else throw new Error('unsupported wire type ' + wt);
-      }
-    },
-  };
-}
-
-const text = (b) => new TextDecoder().decode(b);
-
-function message(buf, spec) {
-  const out = {};
-  for (const [f, , v] of reader(buf).fields()) {
+  while (pos < end) {
+    const key = varint(), f = Math.floor(key / 8), wt = key & 7;
     const s = spec[f];
-    if (!s) continue;
-    const [name, kind, sub, repeated] = s;
-    const val = kind === 'msg' ? message(v, sub)
-      : kind === 'str' ? text(v)
-      : kind === 'u' ? v.num
-      : kind === 'i32' ? v.lo
-      : v;   // float / double
-    if (repeated) (out[name] ||= []).push(val); else out[name] = val;
+    let val;
+    if (wt === 0) {
+      const n = varint();
+      if (!s) continue;
+      val = s[1] === 'i32' ? lo | 0 : n;
+    } else if (wt === 2) {
+      const n = varint(), from = pos;
+      pos += n;
+      if (pos > end) throw new Error('truncated field');
+      if (!s) continue;
+      val = s[1] === 'msg' ? message(buf, s[2], from, pos) : s[1] === 'str' ? utf8.decode(buf.subarray(from, pos)) : buf.subarray(from, pos);
+    } else if (wt === 1) {
+      if (pos + 8 > end) throw new Error('truncated field');
+      val = view.getFloat64(pos, true); pos += 8;
+      if (!s) continue;
+    } else if (wt === 5) {
+      if (pos + 4 > end) throw new Error('truncated field');
+      val = view.getFloat32(pos, true); pos += 4;
+      if (!s) continue;
+    } else throw new Error('unsupported wire type ' + wt);
+    if (s[3]) (out[s[0]] ||= []).push(val); else out[s[0]] = val;
   }
   return out;
 }
@@ -71,7 +71,26 @@ export const STATUS = { INCOMING_AT: 0, STOPPED_AT: 1, IN_TRANSIT_TO: 2 };
 export const CANCELED = 3;
 export const SKIPPED = 1;
 
-export function decodeFeed(bytes) {
-  const feed = message(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes), FEED);
-  return { header: feed.header || {}, entities: (feed.entities || []).filter((e) => !e.deleted) };
+/* keep(trip, entityId), if given, picks the entities worth decoding in full from their trip alone, so a feed
+   that is mostly buses (MBTA's, RTD's) costs little more than its trains. */
+const RAW_ENTITY = { 1: ['id', 'str'], 2: ['deleted', 'u'], 3: ['tripUpdate', 'raw'], 4: ['vehicle', 'raw'] };
+const RAW_FEED = { 1: ['header', 'msg', HEADER], 2: ['entities', 'msg', RAW_ENTITY, true] };
+const TRIP_ONLY = { 1: ['trip', 'msg', TRIP] };
+
+export function decodeFeed(bytes, keep) {
+  const buf = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  if (!keep) {
+    const feed = message(buf, FEED);
+    return { header: feed.header || {}, entities: (feed.entities || []).filter((e) => !e.deleted) };
+  }
+  const feed = message(buf, RAW_FEED), entities = [];
+  for (const e of feed.entities || []) {
+    if (e.deleted) continue;
+    const out = { id: e.id };
+    for (const [name, spec] of [['tripUpdate', TRIP_UPDATE], ['vehicle', VEHICLE]]) {
+      if (e[name] && keep(message(e[name], TRIP_ONLY).trip || {}, e.id)) out[name] = message(e[name], spec);
+    }
+    if (out.tripUpdate || out.vehicle) entities.push(out);
+  }
+  return { header: feed.header || {}, entities };
 }
