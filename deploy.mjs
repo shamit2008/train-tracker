@@ -29,7 +29,7 @@ async function loadEnv() {
 
 const env = await loadEnv();
 const token = env.GITHUB_TOKEN;
-const repo = env.GITHUB_REPO || 'shamit2008/train-tracker';
+const repo = env.GITHUB_REPO || 'sm3625/train-tracker';
 const branch = env.GITHUB_BRANCH || 'main';
 const files = (env.DEPLOY_FILES || 'index.html').split(',').map((f) => f.trim()).filter(Boolean);
 const message = process.argv.slice(2).join(' ') || `Update Trackside (${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC)`;
@@ -57,6 +57,20 @@ async function api(route, init = {}) {
 const check = await api('');
 if (check.status === 401) { console.error('GitHub rejected the token (401). It may be mistyped, expired or revoked.'); process.exit(1); }
 if (check.status !== 200) { console.error(`Can't reach ${repo} with this token (${check.status}). Give the token access to this repository.`); process.exit(1); }
+
+// The feeds worker answers only the origins in its ALLOWED_ORIGINS. If the site's origin isn't one of them, the page
+// loads without its commuter railroads and nothing on the page says why, so check before uploading.
+const pagesOrigin = `https://${repo.split('/')[0]}.github.io`;
+const feedsUrl = ((await readFile(path.join(dir, 'index.html'), 'utf8')).match(/const FEEDS_WORKER = '([^']+)'/) || [])[1];
+if (feedsUrl) {
+  const res = await fetch(feedsUrl + '/v1/stations', { headers: { Origin: pagesOrigin } });
+  await res.body?.cancel();
+  if (res.headers.get('access-control-allow-origin') !== pagesOrigin) {
+    console.error(`The feeds worker (${feedsUrl}) doesn't allow ${pagesOrigin}, so the site would lose its commuter railroads.`);
+    console.error('Add that origin to ALLOWED_ORIGINS in worker/wrangler.toml, then run: cd worker && npx wrangler deploy');
+    process.exit(1);
+  }
+}
 
 // git's blob hash, to skip files that haven't changed
 const blobSha = (buf) => createHash('sha1').update(`blob ${buf.length}\0`).update(buf).digest('hex');
