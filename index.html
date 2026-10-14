@@ -1110,7 +1110,7 @@ button:disabled { cursor: default; opacity: .5; }
         <div class="filters" id="filters">
           <button type="button" class="chip prov-btn" id="provBtn" aria-expanded="false" aria-controls="provPanel"><span class="sr-only">Railroads shown: </span><span id="provSum">Railroads</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>
           <button type="button" class="chip" id="preChip" aria-pressed="false">Not yet departed</button>
-          <button type="button" class="chip" id="ghostChip" aria-pressed="true" title="Hide trains stuck at one spot for 30 minutes or more with no estimate for their next stop">Hide ghost trains</button>
+          <!-- <button type="button" class="chip" id="ghostChip" aria-pressed="true" title="Hide trains stuck at one spot for 30 minutes or more with no estimate for their next stop">Hide ghost trains</button> !-->
         </div>
         <div class="prov-panel" id="provPanel" role="group" aria-label="Show trains from" hidden>
           <div class="prov-top">
@@ -1834,6 +1834,38 @@ let trains = [];
 const byId = new Map();
 const stations = new Map();
 const stationStops = new Map();   // station code -> [{ t, i }]
+/* A station on the same spot as another with the same name (Amtrak's and Metrolink's Irvine, about 10 m apart) is the
+   same station: one board, with the trains of both. aliasOf maps the code of each extra one to the code kept. */
+const aliasOf = new Map();
+const canonCode = (code) => aliasOf.get(code) || code;
+const listedStation = (st) => canonCode(st.code) === st.code && stationStops.has(st.code);
+function linkCoStations() {
+  aliasOf.clear();
+  const byName = new Map();
+  for (const st of stations.values()) {
+    const key = (st.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (key) byName.set(key, [...(byName.get(key) || []), st]);
+  }
+  for (const group of byName.values()) {
+    if (group.length < 2) continue;
+    const keep = group.find((st) => !st.code.includes('-')) || group[0];   // intercity codes have no dash
+    for (const st of group) {
+      if (st !== keep && RAIL.kmBetween([st.lon, st.lat], [keep.lon, keep.lat]) < 0.2) aliasOf.set(st.code, keep.code);
+    }
+  }
+}
+function buildStationStops() {
+  stationStops.clear();
+  for (const t of trains) {
+    t.stops.forEach((s, i) => {
+      if (!s.code) return;
+      const code = canonCode(s.code);
+      let a = stationStops.get(code);
+      if (!a) stationStops.set(code, (a = []));
+      a.push({ t, i });
+    });
+  }
+}
 let stationsLoaded = false, stationsLoading = false;
 let selectedId = null;           // the train whose details are open
 let boardCode = null;            // the station whose board is open (or under an open train)
@@ -2322,7 +2354,7 @@ function stationTier(code) {
    All shows every stop the zoom steps allow, and Off hides them. Hidden stations stay in search and station boards. */
 const isIntercity = (code) => !code.includes('-');
 // Levels: 0 landmark hubs, 1 other intercity, 2 busy commuter (10+ trains today), 3 other commuter.
-const stnLevel = (code) => (HUBS.has(code) ? 0 : isIntercity(code) ? 1 : (stationStops.get(code) || []).length >= 10 ? 2 : 3);
+const stnLevel = (code) => (HUBS.has(code) ? 0 : isIntercity(code) ? 1 : (stationStops.get(canonCode(code)) || []).length >= 10 ? 2 : 3);
 const STN_DOT_K = { quiet: [0, 4.5, 6.5, 9], standard: [0, 3.5, 5.5, 8], all: [0, 0, 3, 5] };     // zoom at which each level's dots appear
 // Names by level, as for STN_DOT_K. Names wait for a much closer zoom than dots; a click on a station always names it.
 const STN_NAME_K = { quiet: [4.5, 7, 9.5, 16], standard: [4, 6.5, 9, 14], all: [2.5, 4.5, 6.5, 12] };
@@ -3695,7 +3727,7 @@ function renderFilters() {
   if (!providers) return;
   $('#provSum').textContent = provSummary();
   $('#preChip').setAttribute('aria-pressed', String(showPre));
-  $('#ghostChip').setAttribute('aria-pressed', String(hideGhosts));
+  if ($('#ghostChip')) $('#ghostChip').setAttribute('aria-pressed', String(hideGhosts));
   if (!$('#provPanel').hidden) renderProvPanel();
 }
 function renderProvPanel() {
@@ -3731,7 +3763,7 @@ function toggleProvPanel(open = $('#provPanel').hidden) {
 }
 $('#provBtn').addEventListener('click', () => toggleProvPanel());
 $('#preChip').addEventListener('click', () => { showPre = !showPre; store.set('showPre', showPre); renderFilters(); renderAll(); });
-$('#ghostChip').addEventListener('click', () => { hideGhosts = !hideGhosts; store.set('hideGhosts', hideGhosts); renderFilters(); renderAll(); });
+$('#ghostChip')?.addEventListener('click', () => { hideGhosts = !hideGhosts; store.set('hideGhosts', hideGhosts); renderFilters(); renderAll(); });
 $('#provQ').addEventListener('input', renderProvPanel);
 $('#provPanel').addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.stopPropagation(); toggleProvPanel(false); $('#provBtn').focus(); }
@@ -3948,7 +3980,7 @@ function matchStations(s, limit) {
     else if (s.length >= 3 && (name.includes(s) || city.includes(s))) sc = 35;
     else if (s.length === 2 && (st.state || '').toLowerCase() === s) sc = 20;
     if (sc < 0) continue;
-    const n = (stationStops.get(st.code) || []).length;
+    const n = (stationStops.get(canonCode(st.code)) || []).length;
     out.push({ sc: sc + (n ? 12 : 0) + Math.min(n, 12) * 0.5, st, n });
   }
   return out.sort((a, b) => b.sc - a.sc || a.st.name.localeCompare(b.st.name)).slice(0, limit);
@@ -3958,7 +3990,7 @@ function buildSuggestions(raw) {
   const groups = [];
   if (!s) {
     const favs = favTrains.map((f) => liveFor(f.num)[0]).filter(Boolean).map((t) => ({ kind: 'train', t }));
-    const favSt = favStations.map((c) => stations.get(c)).filter(Boolean).map((st) => ({ kind: 'station', st, n: (stationStops.get(st.code) || []).length }));
+    const favSt = favStations.map((c) => stations.get(c)).filter(Boolean).map((st) => ({ kind: 'station', st, n: (stationStops.get(canonCode(st.code)) || []).length }));
     const rec = recentTrains.filter((r) => !isFavTrain(r.num)).map((r) => liveFor(r.num)[0]).filter(Boolean).slice(0, 4).map((t) => ({ kind: 'train', t }));
     if (favs.length) groups.push({ label: 'Your trains', items: favs });
     if (favSt.length) groups.push({ label: 'Your stations', items: favSt });
@@ -4496,7 +4528,7 @@ function wireChart(box) {
 /* ---------------- station boards ---------------- */
 function boardEntries(code, kind) {
   const out = [];
-  for (const { t, i } of stationStops.get(code) || []) {
+  for (const { t, i } of stationStops.get(canonCode(code)) || []) {
     const s = t.stops[i];
     const first = i === 0, last = i === t.stops.length - 1;
     if (kind === 'arr' && first) continue;
@@ -4511,7 +4543,7 @@ function boardEntries(code, kind) {
 }
 /* Trains still to arrive at a station (not every train that ever stops there). */
 function upcomingAt(code) {
-  return (stationStops.get(code) || []).filter(({ t, i }) => !isDone(t) && !t.cancelled && i > t.lastIdx)
+  return (stationStops.get(canonCode(code)) || []).filter(({ t, i }) => !isDone(t) && !t.cancelled && i > t.lastIdx)
     .map(({ t, i }) => ({ t, i, time: ms(t.stops[i].arr || t.stops[i].dep || t.stops[i].schArr || t.stops[i].schDep) }))
     .sort((a, b) => a.time - b.time);
 }
@@ -4718,15 +4750,15 @@ function renderNearStations() {
   const el = $('#nearStations');
   if (!me) { el.innerHTML = locationCard('stations'); return; }
   if (!stationsLoaded) { el.innerHTML = '<p class="hint">Loading stations…</p>'; return; }
-  const list = [...stations.values()].filter((s) => stationStops.has(s.code)).map((s) => ({ s, km: kmFromMe(s.lon, s.lat) })).sort((a, b) => a.km - b.km).slice(0, 6);
+  const list = [...stations.values()].filter(listedStation).map((s) => ({ s, km: kmFromMe(s.lon, s.lat) })).sort((a, b) => a.km - b.km).slice(0, 6);
   el.innerHTML = `<p class="hint">Closest stations with trains in today's feed, straight-line distance.</p><div class="list">${list.map((x) => stationRow(x.s, x.km)).join('')}</div>`;
 }
 function renderAllStations() {
   const el = $('#allStations');
   if (!stationsLoaded) { el.innerHTML = '<p class="hint" style="padding:0 20px">Loading stations…</p>'; return; }
   const s = query.trim().toLowerCase();
-  let list = [...stations.values()].filter((st) => stationStops.has(st.code));
-  if (s) list = matchStations(s, 400).map((x) => x.st).filter((st) => stationStops.has(st.code) || s.length >= 2);
+  let list = [...stations.values()].filter(listedStation);
+  if (s) list = matchStations(s, 400).map((x) => x.st).filter((st) => canonCode(st.code) === st.code && (stationStops.has(st.code) || s.length >= 2));
   else list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   $('#stCount').textContent = list.length ? list.length + (s ? ' match' : '') : '';
   if (!list.length) { el.innerHTML = emptyState('No stations found', `Nothing matches “${query.trim()}”. Try a city or a three-letter station code.`, [['Clear search', 'clear-search', true]]); return; }
@@ -5929,15 +5961,7 @@ function ingest(json) {
   trains = flat;
   byId.clear();
   for (const t of trains) byId.set(t.id, t);
-  stationStops.clear();
-  for (const t of trains) {
-    t.stops.forEach((s, i) => {
-      if (!s.code) return;
-      let a = stationStops.get(s.code);
-      if (!a) stationStops.set(s.code, (a = []));
-      a.push({ t, i });
-    });
-  }
+  buildStationStops();
   const wall = Date.now();
   for (const t of trains) setupMotion(t, prev.get(t.id), wall);
   hist.add(trains);
@@ -5985,6 +6009,8 @@ function addStations(json) {
     if (!s || !s.code || !isFinite(lat) || !isFinite(lon)) continue;
     stations.set(s.code, { code: s.code, name: s.name, label: s.label || '', city: s.city, state: s.state, lat, lon, p: projection([lon, lat]) });
   }
+  linkCoStations();
+  buildStationStops();
 }
 function stationsChanged() {
   const wall = Date.now();

@@ -25,9 +25,11 @@ const SUBREQUEST_BUDGET = 45;
    Each isolate keeps feed bytes and builds in memory. Built trains are also in Cloudflare's Cache API so every
    isolate can share them (local dev has no Cache API, so memory alone is used there). Feed bytes stay in memory:
    they're only needed to rebuild, and sharing them would spend the request budget on cache calls. */
+/* Memory holds plain values ({ body, at }), never Response objects: a Response's body stream can only be read once
+   and cloning one after a read throws, which failed every request once a build had been read from memory. */
 const memo = new Map();
 const cacheKey = (name) => new Request('https://trackside-feeds.internal/' + encodeURIComponent(name));
-const ageOf = (res) => (Date.now() - Number(res.headers.get('x-fetched-at'))) / 1000;
+const ageOf = (at) => (Date.now() - at) / 1000;
 const hasCacheApi = () => typeof caches !== 'undefined';
 /* Takes subrequests from this request's budget. Returns false when there aren't enough left. No budget, no limit. */
 function spend(budget, n = 1) {
@@ -38,23 +40,27 @@ function spend(budget, n = 1) {
 }
 function memoGet(name) {
   const r = memo.get(name);
-  return r ? { res: r.clone(), age: ageOf(r) } : null;
+  return r ? { body: r.body, age: ageOf(r.at) } : null;
 }
 function memoPut(name, body) {
-  memo.set(name, new Response(body, { headers: { 'x-fetched-at': String(Date.now()) } }));
+  memo.set(name, { body, at: Date.now() });
 }
+/* A shared build, as its JSON text, with its age. */
 async function sharedGet(name, budget) {
   const mem = memoGet(name);
   if (mem || !hasCacheApi() || !spend(budget)) return mem;
   const hit = await caches.default.match(cacheKey(name));
   if (!hit) return null;
-  memo.set(name, hit.clone());
-  return { res: hit, age: ageOf(hit) };
+  const body = await hit.text(), at = Number(hit.headers.get('x-fetched-at'));
+  memo.set(name, { body, at });
+  return { body, age: ageOf(at) };
 }
 function sharedPut(name, body, ctx, budget) {
-  const res = new Response(body, { headers: { 'x-fetched-at': String(Date.now()), 'cache-control': `max-age=${KEEP_STALE}` } });
-  memo.set(name, res.clone());
-  if (hasCacheApi() && spend(budget)) ctx.waitUntil(caches.default.put(cacheKey(name), res).catch(() => { /* the next request fetches again */ }));
+  memo.set(name, { body, at: Date.now() });
+  if (hasCacheApi() && spend(budget)) {
+    const res = new Response(body, { headers: { 'x-fetched-at': String(Date.now()), 'cache-control': `max-age=${KEEP_STALE}` } });
+    ctx.waitUntil(caches.default.put(cacheKey(name), res).catch(() => { /* the next request fetches again */ }));
+  }
 }
 
 /* One upstream feed. The cache key is the URL without the key, so the key is never stored or logged.
@@ -71,7 +77,7 @@ async function fetchFeed(name, url, auth, env, budget) {
 async function feed(name, { url, fresh }, auth, env, budget) {
   const urls = [].concat(url);
   const hit = memoGet(name + ' ' + urls[0]);
-  if (hit && hit.age < fresh) return { bytes: new Uint8Array(await hit.res.arrayBuffer()), age: hit.age };
+  if (hit && hit.age < fresh) return { bytes: new Uint8Array(hit.body), age: hit.age };
   try {
     let bytes, first;
     for (const u of urls) {
@@ -81,7 +87,7 @@ async function feed(name, { url, fresh }, auth, env, budget) {
     memoPut(name + ' ' + urls[0], bytes);
     return { bytes, age: 0 };
   } catch (err) {
-    if (hit && hit.age < KEEP_STALE) return { bytes: new Uint8Array(await hit.res.arrayBuffer()), age: hit.age, error: err.message };
+    if (hit && hit.age < KEEP_STALE) return { bytes: new Uint8Array(hit.body), age: hit.age, error: err.message };
     throw err;
   }
 }
@@ -96,10 +102,10 @@ async function railroad(a, env, ctx, now, mayRebuild, budget) {
   const sources = [['vehicles', a.vehicles], ['trips', a.trips]].filter(([, f]) => f);
   const fresh = Math.min(...sources.map(([, f]) => f.fresh));
   const built = await sharedGet('built ' + a.id, budget);
-  if (built && (built.age < fresh || (built.age < KEEP_STALE / 6 && !mayRebuild()))) return built.res.json();
+  if (built && (built.age < fresh || (built.age < KEEP_STALE / 6 && !mayRebuild()))) return JSON.parse(built.body);
   // a rebuild needs one fetch per feed and one cache write; without that much left this request, serve what there is
   if (budget && budget.left < sources.length + 1) {
-    if (built && built.age < KEEP_STALE) { const old = await built.res.json(); return { trains: old.trains, status: 'waiting: showing the last build' }; }
+    if (built && built.age < KEEP_STALE) { const old = JSON.parse(built.body); return { trains: old.trains, status: 'waiting: showing the last build' }; }
     return { trains: [], status: 'waiting: request limit, will retry' };
   }
   try {
@@ -111,7 +117,7 @@ async function railroad(a, env, ctx, now, mayRebuild, budget) {
     sharedPut('built ' + a.id, JSON.stringify(result), ctx, budget);
     return result;
   } catch (err) {
-    if (built && built.age < KEEP_STALE) { const old = await built.res.json(); return { trains: old.trains, status: 'stale: ' + scrub(err.message, env) }; }
+    if (built && built.age < KEEP_STALE) { const old = JSON.parse(built.body); return { trains: old.trains, status: 'stale: ' + scrub(err.message, env) }; }
     return { trains: [], status: 'error: ' + scrub(err.message, env) };
   }
 }
