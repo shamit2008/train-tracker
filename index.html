@@ -1110,6 +1110,7 @@ button:disabled { cursor: default; opacity: .5; }
         <div class="filters" id="filters">
           <button type="button" class="chip prov-btn" id="provBtn" aria-expanded="false" aria-controls="provPanel"><span class="sr-only">Railroads shown: </span><span id="provSum">Railroads</span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>
           <button type="button" class="chip" id="preChip" aria-pressed="false">Not yet departed</button>
+          <button type="button" class="chip" id="ghostChip" aria-pressed="true" title="Hide trains stuck at one spot for 30 minutes or more with no estimate for their next stop">Hide ghost trains</button>
         </div>
         <div class="prov-panel" id="provPanel" role="group" aria-label="Show trains from" hidden>
           <div class="prov-top">
@@ -1222,6 +1223,13 @@ button:disabled { cursor: default; opacity: .5; }
           <label class="opt"><input type="radio" name="mapstyle" value="minimal"><span><b>Minimal</b><small>Clean, quiet grey map.</small></span></label>
           <label class="opt"><input type="radio" name="mapstyle" value="geo"><span><b>Geographic</b><small>Colourful map with parks, water, roads and terrain.</small></span></label>
           <label class="opt"><input type="radio" name="mapstyle" value="rail"><span><b>Rail network</b><small>Railways emphasised, plus the routes trains are running on today.</small></span></label>
+        </fieldset>
+        <hr>
+        <fieldset class="stn-modes"><legend>Stations</legend>
+          <label class="opt"><input type="radio" name="stationmode" value="quiet"><span><b>Quiet</b><small>Trains first. A few hubs, plus the stops of a selected train.</small></span></label>
+          <label class="opt"><input type="radio" name="stationmode" value="standard"><span><b>Standard</b><small>More stops as you zoom in, with room kept around trains.</small></span></label>
+          <label class="opt"><input type="radio" name="stationmode" value="all"><span><b>All</b><small>Every stop, when zoomed in. Dense in cities.</small></span></label>
+          <label class="opt"><input type="radio" name="stationmode" value="off"><span><b>Off</b><small>No station dots. Stations stay in search and station boards.</small></span></label>
         </fieldset>
         <hr>
         <label class="check" style="margin:0"><input type="checkbox" id="labelsToggle"> Train numbers and delays next to markers when zoomed in close</label>
@@ -1495,6 +1503,10 @@ const FEEDS_API = FEEDS_WORKER || (/^(file:|https?:\/\/(localhost|127\.0\.0\.1)[
 const FEEDS_KEEP_MS = 5 * 60000;   // if the worker hiccups, keep its last trains this long rather than dropping them
 const REFRESH_S = 60;
 const STALE_MIN = 20;
+/* Railroads the worker still collects but the site doesn't show (their code stays in worker/src/agencies.js). */
+const HIDDEN_PROVIDERS = new Set(['RTD']);
+/* A ghost is a train that has sat at one spot this long in its recorded reports, with no estimate for its next stop. */
+const GHOST_MIN = 30;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1559,8 +1571,11 @@ const prefs = {
   mapStyle: store.get('mapStyle', 'geo'),
   density: store.get('density', 'detailed'),
   trainLabels: store.get('trainLabels', true),
+  stationMode: store.get('stationMode', 'quiet'),     // quiet | standard | all | off; stays on this device
+  stationModeSet: store.get('stationModeSet', false), // true once the person picks one; the Stations tab then stops overriding it
 };
 if (!['minimal', 'geo', 'rail'].includes(prefs.mapStyle)) prefs.mapStyle = 'geo';
+if (!['quiet', 'standard', 'all', 'off'].includes(prefs.stationMode)) prefs.stationMode = 'quiet';
 let reduceMotion = false;
 function applyTheme() {
   if (prefs.theme === 'light' || prefs.theme === 'dark') document.documentElement.setAttribute('data-theme', prefs.theme);
@@ -1795,6 +1810,23 @@ function analyze(raw) {
 const isPre = (t) => /pre/i.test(t.state);
 const isDone = (t) => /complet|termin/i.test(t.state);
 const isStale = (t) => !isNaN(t.posTime) && Date.now() - t.posTime > STALE_MIN * 60000;
+/* How long the recorded reports have all put this train at its current spot (0 if they show it moving, or too little history). */
+function minutesAtSpot(t) {
+  const a = hist.byTrain.get(t.id);
+  if (!a || !a.pts.length || !t.hasPos) return 0;
+  const pts = a.pts, last = pts[pts.length - 1];
+  if (+t.lat.toFixed(5) !== last.lat || +t.lon.toFixed(5) !== last.lon) return 0;
+  let k = pts.length - 1;
+  while (k > 0 && pts[k - 1].lat === last.lat && pts[k - 1].lon === last.lon) k--;
+  return (last.time - pts[k].time) / 60000;
+}
+/* Ghost: stuck at one spot for GHOST_MIN or more, and the feed gives no estimate for the next stop. */
+function isGhost(t) {
+  if (!t.hasPos || t.cancelled || isPre(t) || isDone(t) || t.nextIdx < 0) return false;
+  const next = t.stops[t.nextIdx];
+  if (next.arr || next.dep) return false;
+  return minutesAtSpot(t) >= GHOST_MIN;
+}
 function statusText(t) { return isPre(t) ? 'Not yet departed' : t.cancelled ? 'Cancelled' : fmtDelay(t.delay); }
 
 /* ---------------- state ---------------- */
@@ -1809,6 +1841,7 @@ let showEarlier = false;
 let providers = null;
 let knownProviders = [];
 let showPre = store.get('showPre', false);
+let hideGhosts = store.get('hideGhosts', true);
 let delayFilter = null;
 let query = '';
 let sortBy = store.get('sort', 'route');
@@ -2282,41 +2315,96 @@ const HUBS = new Set(['NYP', 'LAX', 'CHI', 'WAS', 'PHL', 'BOS', 'SEA', 'PDX', 'T
   'SAC', 'EMY', 'SAN', 'STL', 'NWK', 'BAL', 'MSP', 'QBEC', 'WNPG', 'MIA', 'ALB']);
 function stationTier(code) {
   if (HUBS.has(code)) return 1;
-  return stnLevel(code) < 2 ? 2 : 3;
+  return stnLevel(code) <= 1 ? 2 : 3;
 }
-/* How much a station matters. Intercity stations (codes with no railroad prefix; commuter ones read ML-123) and the
-   hubs are always drawn. Busy commuter stations (10+ trains) come in when zoomed in, the rest only closer still.
-   Names follow the same steps, a little later, and no more than STN_NAME_MAX are named at once. */
+/* Station layer. Trains come first. Quiet (the default) shows a few hubs and the stops of a selected train, keeps dots
+   clear of train markers, and caps dots and names by how much map is visible. Standard shows more stops as you zoom in.
+   All shows every stop the zoom steps allow, and Off hides them. Hidden stations stay in search and station boards. */
 const isIntercity = (code) => !code.includes('-');
-const STN_STEPS = { rail: { dot: [0, 3, 5], name: [2.5, 4.5, 7] }, other: { dot: [0, 5, 8], name: [4, 6.5, 11] } };
-const STN_GAP = 9;        // px: a commuter station this close to one already drawn is left out
-const STN_NAME_MAX = 40;
-const stnLevel = (code) => (isIntercity(code) || HUBS.has(code) ? 0 : (stationStops.get(code) || []).length >= 10 ? 1 : 2);
-const stnSteps = () => STN_STEPS[prefs.mapStyle === 'rail' ? 'rail' : 'other'];
+// Levels: 0 landmark hubs, 1 other intercity, 2 busy commuter (10+ trains today), 3 other commuter.
+const stnLevel = (code) => (HUBS.has(code) ? 0 : isIntercity(code) ? 1 : (stationStops.get(code) || []).length >= 10 ? 2 : 3);
+const STN_DOT_K = { quiet: [0, 4.5, 6.5, 9], standard: [0, 3.5, 5.5, 8], all: [0, 0, 3, 5] };     // zoom at which each level's dots appear
+// Names by level, as for STN_DOT_K. Names wait for a much closer zoom than dots; a click on a station always names it.
+const STN_NAME_K = { quiet: [4.5, 7, 9.5, 16], standard: [4, 6.5, 9, 14], all: [2.5, 4.5, 6.5, 12] };
+// Zoom bands: nationwide, regional, metro, close. Gap is the minimum dot-to-dot distance in px.
+const STN_BAND_GAP = [44, 32, 22, 15];
+const STN_BAND_DOTS = { quiet: [15, 35, 60, 80], standard: [30, 60, 100, 150] };   // maxima on a desktop-size map
+const STN_BAND_NAMES = { quiet: [6, 10, 15, 20], standard: [14, 22, 30, 40] };
+const STN_ALL = { gap: 9, names: 40 };
+/* The mode in effect: an explicit choice wins; otherwise the Stations tab favours Standard, and Explore stays Quiet. */
+let stationsTabActive = false;   // set by setTab(); the Stations tab favours Standard until a mode is chosen
+const effectiveStationMode = () => (!prefs.stationModeSet && stationsTabActive && prefs.stationMode !== 'off' ? 'standard' : prefs.stationMode);
+/* The map area a person can use: on a phone with the sheet half open, the sheet covers the lower half. */
+function usableMap() {
+  const { w, h } = mapSize();
+  return { w, h: mqMobile.matches && appEl.dataset.sheetState === 'half' ? h * 0.5 : h };
+}
+function stationLimits(mode, k, w, h) {
+  if (mode === 'all') return { gap: STN_ALL.gap, dots: Infinity, names: STN_ALL.names, dotK: STN_DOT_K.all, nameK: STN_NAME_K.all };
+  const band = k < 1.6 ? 0 : k < 3.5 ? 1 : k < 7 ? 2 : 3;
+  const size = Math.max(0.35, Math.min(1, Math.sqrt((w * h) / 1.3e6)));   // a 1440 × 900 map is the reference size
+  const phone = mqMobile.matches ? 1.25 : 1;
+  return {
+    gap: STN_BAND_GAP[band] * phone,
+    dots: Math.max(5, Math.round(STN_BAND_DOTS[mode][band] * size)),
+    names: Math.round(STN_BAND_NAMES[mode][band] * size),
+    dotK: STN_DOT_K[mode], nameK: STN_NAME_K[mode],
+  };
+}
+const routeStopCodes = () => {
+  const t = selectedId && byId.get(selectedId);
+  return t ? new Set(t.stops.map((s) => s.code)) : null;
+};
+const nextStopCode = () => {
+  const t = selectedId && byId.get(selectedId);
+  const s = t && t.stops[t.lastIdx + 1];
+  return s ? s.code : null;
+};
 let shownStn = new Map();   // code -> { sx, sy }: the station dots drawn at this zoom
-function visibleStations(k) {
+let trainMarks = [];        // screen boxes of train markers and groups, from the last positionAll()
+function collectTrainMarks() {
+  trainMarks = [];
+  for (const d of gTrains.selectAll('g.train').data()) {
+    if (!d.p || !isFinite(d.sx) || clusterHidden.has(d.id)) continue;
+    const r = spriteSize(T.k, d.id === selectedId) / 2 * (d.feed && d.id !== selectedId ? COMMUTER_SCALE : 1);
+    trainMarks.push({ x0: d.sx - r, y0: d.sy - r, x1: d.sx + r, y1: d.sy + r });
+  }
+  for (const c of clusters) if (isFinite(c.x)) trainMarks.push({ x0: c.x - 18, y0: c.y - 18, x1: c.x + 18, y1: c.y + 18 });
+}
+function visibleStations(k, mode) {
   const shown = new Map();
   if (replay.active) return shown;
-  const steps = stnSteps().dot;
-  const { w, h } = mapSize();
+  const { w, h } = usableMap();
+  const lim = stationLimits(mode, k, w, h);
+  const route = mode === 'all' ? null : routeStopCodes();   // a selected train: quiet and standard keep only its stops
+  const sheetFull = mqMobile.matches && appEl.dataset.sheetState === 'full';
   const grid = new Map();
-  const cellOf = (sx, sy) => Math.floor(sx / STN_GAP) + ',' + Math.floor(sy / STN_GAP);
+  const cellOf = (sx, sy) => Math.floor(sx / lim.gap) + ',' + Math.floor(sy / lim.gap);
   const crowded = (sx, sy) => {
-    const gx = Math.floor(sx / STN_GAP), gy = Math.floor(sy / STN_GAP);
+    const gx = Math.floor(sx / lim.gap), gy = Math.floor(sy / lim.gap);
     for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
-      for (const [px, py] of grid.get((gx + i) + ',' + (gy + j)) || []) if (Math.hypot(px - sx, py - sy) < STN_GAP) return true;
+      for (const [px, py] of grid.get((gx + i) + ',' + (gy + j)) || []) if (Math.hypot(px - sx, py - sy) < lim.gap) return true;
     }
     return false;
   };
-  const byLevel = [[], [], []];
+  const onTrain = (sx, sy) => trainMarks.some((b) => sx > b.x0 - 6 && sx < b.x1 + 6 && sy > b.y0 - 6 && sy < b.y1 + 6);
+  const byLevel = [[], [], [], []];
   for (const s of stations.values()) if (s.p) byLevel[stnLevel(s.code)].push(s);
-  for (let lv = 0; lv < 3; lv++) {
+  // landmarks are placed first, so when two stations compete the bigger one keeps its dot
+  for (let lv = 0; lv < 4; lv++) {
     for (const s of byLevel[lv]) {
       const boardOpen = s.code === boardCode;
-      if (!boardOpen && k < steps[lv]) continue;
+      const onRoute = !!route && route.has(s.code);
+      if (!boardOpen) {
+        if (mode === 'off' || sheetFull) continue;
+        if (route && !onRoute) continue;
+        // a dot already drawn stays until the zoom drops a little below its step, so it doesn't flicker
+        const step = lim.dotK[lv] * (shownStn.has(s.code) ? 0.9 : 1);
+        if (!onRoute && k < step) continue;
+      }
       const sx = T.applyX(s.p[0]), sy = T.applyY(s.p[1]);
       if (!boardOpen && (sx < -10 || sx > w + 10 || sy < -10 || sy > h + 10)) continue;
-      if (lv > 0 && !boardOpen && crowded(sx, sy)) continue;
+      if (!boardOpen && (shown.size >= lim.dots || crowded(sx, sy) || (mode !== 'all' && onTrain(sx, sy)))) continue;
       shown.set(s.code, { sx, sy });
       const key = cellOf(sx, sy);
       if (!grid.has(key)) grid.set(key, []);
@@ -2329,8 +2417,11 @@ function positionAll() {
   const k = T.k;
   positionTrains();
   placeMe();
-  shownStn = visibleStations(k);
-  const r = k >= 8 ? 5 : k >= 3 ? 3.8 : 3;
+  collectTrainMarks();
+  const mode = effectiveStationMode();
+  shownStn = visibleStations(k, mode);
+  // quiet dots are smaller than trains and never outline themselves; hubs are slightly bigger
+  const r = mode === 'quiet' ? (k >= 8 ? 4 : k >= 3 ? 3.2 : 2.6) : k >= 8 ? 5 : k >= 3 ? 3.8 : 3;
   const hitR = matchMedia('(pointer: coarse)').matches ? 16 : 11;
   const shownOnly = (d) => (shownStn.has(d.code) ? null : 'none');
   gStationHits.selectAll('circle')
@@ -2445,20 +2536,25 @@ function layoutLabels() {
     tryPlace(c, sx, sy);
   }
   // station names: only for stations whose dots are drawn, hubs first and largest, then the rest as they fit
-  const nameK = stnSteps().name;
+  const mode = effectiveStationMode();
+  const { w: uw, h: uh } = usableMap();
+  const lim = stationLimits(mode, k, uw, uh);
   const tierFont = [0, { fs: 14.5, cw: 8.4 }, { fs: 12.5, cw: 7.1 }, { fs: 11.5, cw: 6.5 }];
   if (stationsLoaded) {
+    const next = nextStopCode();
     const vis = [];
     for (const [code, p] of shownStn) {
       const s = stations.get(code);
-      if (!s || code === boardCode || k < nameK[stnLevel(code)]) continue;
+      if (!s || code === boardCode || k < lim.nameK[stnLevel(code)]) continue;
       vis.push({ s, tier: stationTier(code), sx: p.sx, sy: p.sy });
     }
-    vis.sort((a, b) => a.tier - b.tier);
+    // the next stop of the selected train is always named; the rest count against the cap
+    vis.sort((a, b) => (b.s.code === next) - (a.s.code === next) || a.tier - b.tier);
     let named = 0;
     for (const v of vis) {
-      if (named >= STN_NAME_MAX || out.length > 260) break;
-      if (tryPlace({ id: 'stn-' + v.s.code, kind: 'stn', tier: v.tier, text: v.s.name || v.s.code, ...tierFont[v.tier] }, v.sx, v.sy)) named++;
+      const isNext = v.s.code === next;
+      if ((!isNext && named >= lim.names) || out.length > 260) continue;
+      if (tryPlace({ id: 'stn-' + v.s.code, kind: 'stn', tier: v.tier, text: v.s.name || v.s.code, ...tierFont[v.tier] }, v.sx, v.sy) && !isNext) named++;
     }
   }
   const sel = gLabels.selectAll('g').data(out, (o) => o.id);
@@ -2553,6 +2649,7 @@ function inScope(t) {
   if (providers && !providers.has(t.provider)) return false;
   if (isDone(t)) return false;
   if (isPre(t) && !showPre) return false;
+  if (hideGhosts && t.ghost) return false;
   return true;
 }
 const baseVisible = (t) => inScope(t) && (!delayFilter || t.sig === delayFilter);
@@ -3284,9 +3381,21 @@ function trainTip(t) {
     + (t.sev >= 2 ? `<br><b>${esc(t.notices[0].summary)}</b>` : '')
     + `<br><span class="t-est">${stale ? 'Position may be out of date: ' : 'Estimated position, '}reported ${esc(shortAgo(t.posTime))}</span></div>`;
 }
+/* Mouse hovers wait briefly before a tooltip appears, so sweeping across the map doesn't flash labels. Once one is
+   showing, moving to the next marker updates it straight away. Focus and touch are not delayed. */
+const TIP_DELAY = 400;
+let tipTimer = 0, tipPending = null;
 function showTip(e, html) {
   const r = mapEl.getBoundingClientRect();
-  showTipAt(e.clientX - r.left, e.clientY - r.top, html);
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  if (!tipEl.hidden) { showTipAt(x, y, html); return; }
+  tipPending = { x, y, html };
+  if (!tipTimer) tipTimer = setTimeout(() => {
+    tipTimer = 0;
+    const p = tipPending;
+    tipPending = null;
+    if (p) showTipAt(p.x, p.y, p.html);
+  }, TIP_DELAY);
 }
 function showTipAt(x, y, html) {
   if (!isFinite(x) || !isFinite(y)) return;
@@ -3299,7 +3408,12 @@ function showTipAt(x, y, html) {
   tipEl.style.left = x + 'px';
   tipEl.style.top = y + 'px';
 }
-function hideTip() { tipEl.hidden = true; }
+function hideTip() {
+  clearTimeout(tipTimer);
+  tipTimer = 0;
+  tipPending = null;
+  tipEl.hidden = true;
+}
 
 /* ---------------- keyboard on the map ---------------- */
 svg.on('keydown', (e) => {
@@ -3353,6 +3467,7 @@ svg.on('keydown', (e) => {
 const bodyEl = $('#body'), qEl = $('#q'), suggEl = $('#sugg');
 const TABS = ['explore', 'track', 'stations'];
 let tab = TABS.includes(store.get('tab', 'explore')) ? store.get('tab', 'explore') : 'explore';
+stationsTabActive = tab === 'stations';
 const nav = [];                 // screens opened over the tab: { type: 'train', id, ctx } | { type: 'station', code }
 const scrollMem = new Map();
 const topScreen = () => nav[nav.length - 1] || null;
@@ -3365,6 +3480,10 @@ function setTab(name, { focus = false } = {}) {
   rememberScroll();
   tab = name;
   store.set('tab', name);
+  if (stationsTabActive !== (name === 'stations')) {
+    stationsTabActive = name === 'stations';
+    if (stationsLoaded) positionAll();
+  }
   nav.length = 0;
   for (const n of TABS) {
     const b = $('#tab-' + n);
@@ -3576,6 +3695,7 @@ function renderFilters() {
   if (!providers) return;
   $('#provSum').textContent = provSummary();
   $('#preChip').setAttribute('aria-pressed', String(showPre));
+  $('#ghostChip').setAttribute('aria-pressed', String(hideGhosts));
   if (!$('#provPanel').hidden) renderProvPanel();
 }
 function renderProvPanel() {
@@ -3611,6 +3731,7 @@ function toggleProvPanel(open = $('#provPanel').hidden) {
 }
 $('#provBtn').addEventListener('click', () => toggleProvPanel());
 $('#preChip').addEventListener('click', () => { showPre = !showPre; store.set('showPre', showPre); renderFilters(); renderAll(); });
+$('#ghostChip').addEventListener('click', () => { hideGhosts = !hideGhosts; store.set('hideGhosts', hideGhosts); renderFilters(); renderAll(); });
 $('#provQ').addEventListener('input', renderProvPanel);
 $('#provPanel').addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.stopPropagation(); toggleProvPanel(false); $('#provBtn').focus(); }
@@ -4565,7 +4686,7 @@ let nearShowAll = false;
 function renderNearTrains() {
   const el = $('#nearTrains');
   if (!me) { $('#nearCount').textContent = ''; el.innerHTML = locationCard('trains'); return; }
-  const list = trains.filter((t) => t.hasPos && !isDone(t) && (showPre || !isPre(t)))
+  const list = trains.filter((t) => t.hasPos && !isDone(t) && (showPre || !isPre(t)) && !(hideGhosts && t.ghost))
     .map((t) => ({ t, km: kmFromMe(...(t.ll || [t.lon, t.lat])) })).sort((a, b) => a.km - b.km);
   const within = list.filter((x) => x.km <= NEAR_KM);
   $('#nearCount').textContent = within.length + ' within 25 mi';
@@ -5026,6 +5147,7 @@ function syncSettings() {
   $$('input[name="motion"]').forEach((i) => { i.checked = i.value === prefs.motion; });
   $$('input[name="density"]').forEach((i) => { i.checked = i.value === prefs.density; });
   $$('input[name="mapstyle"]').forEach((i) => { i.checked = i.value === prefs.mapStyle; });
+  $$('input[name="stationmode"]').forEach((i) => { i.checked = i.value === effectiveStationMode(); });
   $('#labelsToggle').checked = !!prefs.trainLabels;
 }
 $('#settings').addEventListener('change', (e) => {
@@ -5043,9 +5165,17 @@ function setMapStyle(s) {
   drawNetwork();
   positionAll();
 }
+function setStationMode(m) {
+  prefs.stationMode = m;
+  prefs.stationModeSet = true;
+  store.set('stationMode', m);
+  store.set('stationModeSet', true);
+  positionAll();
+}
 $('#layers').addEventListener('change', (e) => {
   const i = e.target;
   if (i.name === 'mapstyle') setMapStyle(i.value);
+  else if (i.name === 'stationmode') setStationMode(i.value);
   else if (i.id === 'labelsToggle') { prefs.trainLabels = i.checked; store.set('trainLabels', i.checked); positionTrains(); }
 });
 $('#home').addEventListener('click', (e) => { e.preventDefault(); nav.length = 0; closeSugg(); showScreen({ restore: true }); });
@@ -5374,7 +5504,8 @@ function loadTimetables() {
 }
 function prepTimetables(d) {
   const list = [], seen = new Set();
-  for (const a of d.agencies) {
+  const agencies = d.agencies.filter((a) => !HIDDEN_PROVIDERS.has(a.provider));
+  for (const a of agencies) {
     a.label = provName(a.provider);
     a.byNum = new Map();
     for (const t of a.trains) { if (!a.byNum.has(t[0])) a.byNum.set(t[0], []); a.byNum.get(t[0]).push(t); }
@@ -5390,7 +5521,7 @@ function prepTimetables(d) {
       list.push({ a, i, code, name, tz, label });
     });
   }
-  return { built: d.built, agencies: d.agencies, stations: list, byLabel: new Map(list.map((s) => [s.label.toLowerCase(), s])) };
+  return { built: d.built, agencies, stations: list, byLabel: new Map(list.map((s) => [s.label.toLowerCase(), s])) };
 }
 const ymdDash = (n) => `${n.slice(0, 4)}-${n.slice(4, 6)}-${n.slice(6, 8)}`;
 const ymdUtc = (n, k = 0, h = 0) => Date.UTC(+n.slice(0, 4), +n.slice(4, 6) - 1, +n.slice(6, 8) + k, h);
@@ -5418,11 +5549,14 @@ function runOf(a, [num, ri, , f], n) {
     const [code, name, tz] = a.stations[f[k]];
     stops.push({ code, name, tz, arr: base + f[k + 1] * 60000, dep: base + f[k + 2] * 60000 });
   }
-  return { provider: a.provider, label: a.label, num, route, date: ymdDash(n), valid: a.valid, stops };
+  // dated by the day it leaves its first station, as a live train is (serviceDateOf), so a saved trip matches it
+  return { provider: a.provider, label: a.label, num, route, date: ymdDash(localYmd(stops[0].dep, stops[0].tz)), valid: a.valid, stops };
 }
 const dedupe = (list, key) => { const seen = new Set(); return list.filter((x) => { const k = key(x); if (seen.has(k)) return false; seen.add(k); return true; }); };
-/* Trains leaving station `from` on day n (in that station's time zone) that later stop at `to`. A train that left its
-   first station a day or more earlier counts too: boarding the Zephyr in Denver means a train that left Chicago the day before. */
+/* Trains that run on day n (their service day) and later stop at `to` after `from`. A run counts on its service day even
+   when it leaves `from` the evening before: western stops are timed from the Eastern agency day, so a Columbus Day run
+   from Sacramento leaves at 9 pm on the 11th. Trains that left `from` on day n also count, from an earlier service day
+   (boarding the Zephyr in Denver means a train that left Chicago the day before). */
 function runsBetween(from, to, n) {
   const a = from.a, out = [];
   for (const t of a.trains) {
@@ -5433,11 +5567,11 @@ function runsBetween(from, to, n) {
       else if (i >= 0 && f[k] === to.i) { j = k / 3; break; }
     }
     if (j < 0) continue;
-    for (let back = 0; back <= 4; back++) {
-      const sd = addDays(n, -back);
+    for (const off of [1, 0, -1, -2, -3, -4]) {
+      const sd = addDays(n, off);
       if (!runsOn(a.services[t[2]], sd)) continue;
       const run = runOf(a, t, sd);
-      if (localYmd(run.stops[i].dep, run.stops[i].tz) === n) out.push({ run, i, j });
+      if (off === 0 || localYmd(run.stops[i].dep, run.stops[i].tz) === n) out.push({ run, i, j });
     }
   }
   return dedupe(out, (x) => x.run.num + '|' + x.run.stops[x.i].dep).sort((x, y) => x.run.stops[x.i].dep - y.run.stops[y.i].dep);
@@ -5625,10 +5759,9 @@ function findStation(text) {
   const hits = tt.stations.filter((s) => s.name.toLowerCase() === q || s.code.toLowerCase() === q);
   return hits.length === 1 ? hits[0] : null;
 }
-const validNote = (runs, n) => {
-  const late = dedupe(runs.filter((r) => r.valid && n > r.valid[1]), (r) => r.provider);
-  return late.map((r) => `<p class="plan-note">${esc(r.label)} has published its timetable through ${esc(fmt('UTC', { month: 'short', day: 'numeric', year: 'numeric' }).format(ymdUtc(r.valid[1])))}; times after that may still change.</p>`).join('');
-};
+/* Railroads publish their timetables a few weeks to a few months ahead. Past that, trains that run only on certain days
+   (holiday services, say) aren't in the timetable yet, so say so whether or not any trains came up. */
+const validNote = (agencies, n) => agencies.filter((a) => a.valid && n > a.valid[1]).map((a) => `<p class="plan-note">${esc(a.label)} has published its timetable only through ${esc(fmt('UTC', { month: 'short', day: 'numeric', year: 'numeric' }).format(ymdUtc(a.valid[1])))}, so trains on this day may not be listed yet.</p>`).join('');
 const durText = (m) => (m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ' min');
 function pickHTML(k) {
   const run = planRuns[k], last = run.stops.length - 1;
@@ -5642,12 +5775,14 @@ function pickHTML(k) {
 function resultHTML({ run, i, j }, k) {
   const a = run.stops[i], b = run.stops[j];
   const added = myTrips.some((p) => p.provider === run.provider && p.num === run.num && p.date === run.date);
+  // a run listed for this day can leave the evening before; say which day it leaves
+  const early = localYmd(a.dep, a.tz) !== planN ? ` · leaves ${dayPhrase(a.dep, a.tz)}` : '';
   return `<div class="plan-res"><div><b>${esc(run.num)} ${esc(run.route)}</b><small>${esc(run.label)} · ${esc(run.stops[0].name)} to ${esc(run.stops[run.stops.length - 1].name)}</small>`
     + `<span class="pr-leg">${esc(clockZ(a.dep, a.tz))} ${esc(a.name)} → ${esc(clockZ(b.arr, b.tz))} ${esc(b.name)}${plusDays({ at: a.dep, tz: a.tz }, { at: b.arr, tz: b.tz })}</span>`
-    + `<small>${durText(Math.round((b.arr - a.dep) / 60000))}</small></div>`
+    + `<small>${durText(Math.round((b.arr - a.dep) / 60000))}${early}</small></div>`
     + `<button type="button" class="btn" data-add="${k}"${added ? ' disabled' : ''}>${added ? 'Added' : 'Add'}</button></div>`;
 }
-let planHits = [];
+let planHits = [], planN = '';   // planN: the day searched, YYYYMMDD
 $('#planForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const err = $('#planForm .acct-err');
@@ -5657,14 +5792,16 @@ $('#planForm').addEventListener('submit', async (e) => {
   const date = $('#planDate').value;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { showErr(err, 'Pick a date.'); return; }
   const n = date.replace(/-/g, '');
+  planN = n;
   const day = fmt('UTC', { weekday: 'long', month: 'short', day: 'numeric' }).format(ymdUtc(n));
   if (planMode() === 'number') {
     const num = $('#planNum').value.trim().replace(/^[A-Za-z]+(?=\d)/, '');
     if (!num) { showErr(err, 'Enter a train number.'); return; }
     planRuns = runsByNumber(num, n);
+    const agencies = planRuns.length ? tt.agencies.filter((a) => planRuns.some((r) => r.provider === a.provider)) : tt.agencies;
     $('#planOut').innerHTML = planRuns.length
-      ? validNote(planRuns, n) + planRuns.map((_, k) => pickHTML(k)).join('')
-      : `<p class="plan-note">No train ${esc(num)} starts its run on ${esc(day)}. Trains are listed by the day they leave their first station; to catch one partway, search by station.</p>`;
+      ? validNote(agencies, n) + planRuns.map((_, k) => pickHTML(k)).join('')
+      : `<p class="plan-note">No train ${esc(num)} starts its run on ${esc(day)}. Trains are listed by the day their run starts, so a late-evening departure from the West can be the day before. To catch one partway, search by station.</p>` + validNote(agencies, n);
     return;
   }
   const from = findStation($('#planFrom').value), to = findStation($('#planTo').value);
@@ -5673,9 +5810,10 @@ $('#planForm').addEventListener('submit', async (e) => {
   if (from === to) { showErr(err, 'Pick two different stations.'); return; }
   planHits = runsBetween(from, to, n);
   planRuns = planHits.map((h) => h.run);
-  $('#planOut').innerHTML = planHits.length
-    ? `<p class="plan-note">${plural(planHits.length, 'train')} from ${esc(from.name)} to ${esc(to.name)} on ${esc(day)}, by the published timetable.</p>` + validNote(planRuns, n) + planHits.map(resultHTML).join('')
-    : `<p class="plan-note">No trains from ${esc(from.name)} to ${esc(to.name)} on ${esc(day)} in the published timetable.</p>`;
+  $('#planOut').innerHTML = (planHits.length
+    ? `<p class="plan-note">${plural(planHits.length, 'train')} from ${esc(from.name)} to ${esc(to.name)} on ${esc(day)}, by the published timetable.</p>` + planHits.map(resultHTML).join('')
+    : `<p class="plan-note">No trains from ${esc(from.name)} to ${esc(to.name)} on ${esc(day)} in the published timetable.</p>`)
+    + validNote([from.a], n);
 });
 $$('input[name="planMode"]').forEach((r) => r.addEventListener('change', () => { syncPlanMode(); $('#planOut').innerHTML = ''; }));
 $('#planOut').addEventListener('click', async (e) => {
@@ -5780,6 +5918,7 @@ function ingest(json) {
   for (const arr of Object.values(json || {})) {
     if (!Array.isArray(arr)) continue;
     for (const raw of arr) {
+      if (HIDDEN_PROVIDERS.has(raw.provider)) continue;
       const t = analyze(raw);
       if (seen.has(t.id)) continue;
       seen.add(t.id);
@@ -5802,6 +5941,7 @@ function ingest(json) {
   const wall = Date.now();
   for (const t of trains) setupMotion(t, prev.get(t.id), wall);
   hist.add(trains);
+  for (const t of trains) t.ghost = isGhost(t);   // after hist.add, so this refresh's reports count
 
   const provs = [...new Set(trains.map((t) => t.provider))].sort((a, b) => (a === 'Amtrak' ? -1 : b === 'Amtrak' ? 1 : a.localeCompare(b)));
   const newProv = provs.some((p) => !knownProviders.includes(p));

@@ -18,26 +18,49 @@ import SCHEDULES from './schedules.json' with { type: 'json' };
 const KEEP_STALE = 30 * 60;   // after an upstream error, keep serving the last good copy this long (seconds)
 const FETCH_TIMEOUT = 8000;   // one slow railroad mustn't hold up the rest
 const REBUILDS_PER_REQUEST = 4;   // railroads one request may rebuild when older builds are on hand (see railroad())
+// Workers Free allows 50 subrequests per request, and Cache API calls count toward that too. Stay under it.
+const SUBREQUEST_BUDGET = 45;
 
-/* ---------------- a small shared cache (Cloudflare's Cache API, or memory in local dev) ---------------- */
+/* ---------------- caches ----------------
+   Each isolate keeps feed bytes and builds in memory. Built trains are also in Cloudflare's Cache API so every
+   isolate can share them (local dev has no Cache API, so memory alone is used there). Feed bytes stay in memory:
+   they're only needed to rebuild, and sharing them would spend the request budget on cache calls. */
 const memo = new Map();
 const cacheKey = (name) => new Request('https://trackside-feeds.internal/' + encodeURIComponent(name));
-async function cacheGet(name) {
-  const cache = typeof caches !== 'undefined' ? caches.default : null;
-  const hit = cache ? await cache.match(cacheKey(name)) : memo.get(name);
-  if (!hit) return null;
-  return { res: hit.clone(), age: (Date.now() - Number(hit.headers.get('x-fetched-at'))) / 1000 };
+const ageOf = (res) => (Date.now() - Number(res.headers.get('x-fetched-at'))) / 1000;
+const hasCacheApi = () => typeof caches !== 'undefined';
+/* Takes subrequests from this request's budget. Returns false when there aren't enough left. No budget, no limit. */
+function spend(budget, n = 1) {
+  if (!budget) return true;
+  if (budget.left < n) return false;
+  budget.left -= n;
+  return true;
 }
-function cachePut(name, body, ctx) {
+function memoGet(name) {
+  const r = memo.get(name);
+  return r ? { res: r.clone(), age: ageOf(r) } : null;
+}
+function memoPut(name, body) {
+  memo.set(name, new Response(body, { headers: { 'x-fetched-at': String(Date.now()) } }));
+}
+async function sharedGet(name, budget) {
+  const mem = memoGet(name);
+  if (mem || !hasCacheApi() || !spend(budget)) return mem;
+  const hit = await caches.default.match(cacheKey(name));
+  if (!hit) return null;
+  memo.set(name, hit.clone());
+  return { res: hit, age: ageOf(hit) };
+}
+function sharedPut(name, body, ctx, budget) {
   const res = new Response(body, { headers: { 'x-fetched-at': String(Date.now()), 'cache-control': `max-age=${KEEP_STALE}` } });
-  const cache = typeof caches !== 'undefined' ? caches.default : null;
-  if (cache) ctx.waitUntil(cache.put(cacheKey(name), res).catch(() => { /* the next request fetches again */ }));
-  else memo.set(name, res);
+  memo.set(name, res.clone());
+  if (hasCacheApi() && spend(budget)) ctx.waitUntil(caches.default.put(cacheKey(name), res).catch(() => { /* the next request fetches again */ }));
 }
 
 /* One upstream feed. The cache key is the URL without the key, so the key is never stored or logged.
    url may list fallbacks, tried in order (Tri-Rail's HTTPS server offers only a cipher some clients refuse). */
-async function fetchFeed(name, url, auth, env) {
+async function fetchFeed(name, url, auth, env, budget) {
+  if (!spend(budget)) throw new Error(`${name}: over this request's limit, retrying on the next one`);
   const a = auth ? auth(env, url) : {};
   const res = await fetch(a.url || url, { headers: a.headers || {}, cf: { cacheTtl: 0 }, signal: AbortSignal.timeout(FETCH_TIMEOUT) });
   if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
@@ -45,17 +68,17 @@ async function fetchFeed(name, url, auth, env) {
   decodeFeed(bytes, () => false);   // don't cache something that isn't a feed (an HTML error page, say)
   return bytes;
 }
-async function feed(name, { url, fresh }, auth, env, ctx) {
+async function feed(name, { url, fresh }, auth, env, budget) {
   const urls = [].concat(url);
-  const hit = await cacheGet(name + ' ' + urls[0]);
+  const hit = memoGet(name + ' ' + urls[0]);
   if (hit && hit.age < fresh) return { bytes: new Uint8Array(await hit.res.arrayBuffer()), age: hit.age };
   try {
     let bytes, first;
     for (const u of urls) {
-      try { bytes = await fetchFeed(name, u, auth, env); break; } catch (err) { first ||= err; }
+      try { bytes = await fetchFeed(name, u, auth, env, budget); break; } catch (err) { first ||= err; }
     }
     if (!bytes) throw first;
-    cachePut(name + ' ' + urls[0], bytes, ctx);
+    memoPut(name + ' ' + urls[0], bytes);
     return { bytes, age: 0 };
   } catch (err) {
     if (hit && hit.age < KEEP_STALE) return { bytes: new Uint8Array(await hit.res.arrayBuffer()), age: hit.age, error: err.message };
@@ -66,21 +89,26 @@ async function feed(name, { url, fresh }, auth, env, ctx) {
 /* One railroad's trains, rebuilt at most as often as its feeds refresh. Returns { trains, status }.
    mayRebuild() says whether this request still has room to rebuild; if not, a recent build is served as is.
    That spreads the decoding over requests, since Workers limit the CPU time of each one. */
-async function railroad(a, env, ctx, now, mayRebuild) {
+async function railroad(a, env, ctx, now, mayRebuild, budget) {
   const sched = SCHEDULES[a.id];
   if (!sched) return { trains: [], status: 'no timetable (run npm run schedules)' };
   if (a.key && !env[a.key]) return { trains: [], status: 'no key configured' };
   const sources = [['vehicles', a.vehicles], ['trips', a.trips]].filter(([, f]) => f);
   const fresh = Math.min(...sources.map(([, f]) => f.fresh));
-  const built = await cacheGet('built ' + a.id);
+  const built = await sharedGet('built ' + a.id, budget);
   if (built && (built.age < fresh || (built.age < KEEP_STALE / 6 && !mayRebuild()))) return built.res.json();
+  // a rebuild needs one fetch per feed and one cache write; without that much left this request, serve what there is
+  if (budget && budget.left < sources.length + 1) {
+    if (built && built.age < KEEP_STALE) { const old = await built.res.json(); return { trains: old.trains, status: 'waiting: showing the last build' }; }
+    return { trains: [], status: 'waiting: request limit, will retry' };
+  }
   try {
-    const got = await Promise.all(sources.map(([kind, f]) => feed(a.provider + ' ' + kind, f, a.auth, env, ctx)));
+    const got = await Promise.all(sources.map(([kind, f]) => feed(a.provider + ' ' + kind, f, a.auth, env, budget)));
     const keep = a.mixed ? railFilter(sched) : undefined;
     const trains = buildTrains(a, sched, got.map((g) => decodeFeed(g.bytes, keep)), now);
     const err = got.find((g) => g.error);
     const result = { trains, status: err ? 'stale: ' + scrub(err.error, env) : 'ok' };
-    cachePut('built ' + a.id, JSON.stringify(result), ctx);
+    sharedPut('built ' + a.id, JSON.stringify(result), ctx, budget);
     return result;
   } catch (err) {
     if (built && built.age < KEEP_STALE) { const old = await built.res.json(); return { trains: old.trains, status: 'stale: ' + scrub(err.message, env) }; }
@@ -127,8 +155,9 @@ export default {
       const now = Date.now();
       const result = {}, status = {};
       let rebuilds = REBUILDS_PER_REQUEST;
+      const budget = { left: SUBREQUEST_BUDGET };
       await Promise.all(AGENCIES.map(async (a) => {
-        const r = await railroad(a, env, ctx, now, () => rebuilds-- > 0);
+        const r = await railroad(a, env, ctx, now, () => rebuilds-- > 0, budget);
         result[a.provider] = r.trains;
         status[a.provider] = r.status;
       }));
