@@ -3,11 +3,18 @@
 
    An adapter is any object with these async methods. Times are milliseconds since 1970.
 
-     createUser({ id, email, passwordHash, createdAt })      throws StoreError('email_taken') if the email exists
-     getUserByEmail(email) -> user | null                     user: { id, email, passwordHash, createdAt }
-     getUserById(id) -> user | null
+     createUser({ id, email, username?, passwordHash, createdAt })
+                                                              throws StoreError('email_taken' or 'username_taken')
+     getUserByEmail(email) -> user | null                     user: { id, email, username, phone, passwordHash, createdAt }
+     getUserById(id) -> user | null                           username and phone (E.164) are null until chosen
+     getUserByUsername(username) -> user | null
+     setProfile(id, { username?, phone? })                    together or not at all. phone: { number, hash } to set,
+                                                              null to remove; a field left out stays as it is.
+                                                              throws StoreError('username_taken' or 'phone_taken')
+     findByPhoneHashes([hash]) -> [{ id, username, phoneHash }]   accounts with a username whose number matches
      setPasswordHash(id, passwordHash)
-     deleteUser(id)                                           also deletes that user's sessions, data, trips and reset links
+     deleteUser(id)                                           also deletes that user's sessions, data, trips, reset links,
+                                                              username, phone and friendships
 
      createSession({ tokenHash, userId, createdAt, expiresAt })
      getSession(tokenHash) -> { tokenHash, userId, createdAt, expiresAt } | null
@@ -21,6 +28,14 @@
      listTrips(userId) -> [trip]                              trip: { id, userId, provider, num, date, departAt, data, createdAt }
      addTrip(trip)                                            throws StoreError('trip_exists') for the same train on the same day
      deleteTrip(userId, id) -> boolean                        false if there was no such trip
+
+     getFriendship(a, b) -> friendship | null                 either direction. friendship: { requesterId, addresseeId,
+                                                                status: 'pending' | 'accepted', createdAt, acceptedAt }
+     addFriendRequest({ requesterId, addresseeId, createdAt })   throws StoreError('friendship_exists')
+     acceptFriendRequest(requesterId, addresseeId, at) -> boolean   false if there was no such pending request
+     deleteFriendship(a, b) -> boolean                        either direction
+     listFriendships(userId) -> [friendship + { otherId, otherUsername }]   oldest first
+     listFriendTrips(userId, since) -> [trip + { username }]  accepted friends' trips leaving at or after since, soonest first
 
      createResetToken({ tokenHash, userId, createdAt, expiresAt })
      getResetToken(tokenHash) -> { tokenHash, userId, createdAt, expiresAt } | null

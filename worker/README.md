@@ -218,6 +218,23 @@ Trips are stored in the accounts database (the `trips` table, `migrations/0002_t
 same store interface as everything else, so they move with it. Each is matched to the live train by railroad,
 train number and the date the train leaves its first station.
 
+## Friends
+
+People add each other by username or phone number (the Friends button at the top), and in the iOS and Android apps
+from their phone's contacts. A request becomes a friendship once the other person accepts, or as soon as they ask
+back. Friends see each other's upcoming trips, in Friends' trips and on the train's own page ("@ann is on this
+train"); they never see each other's emails or numbers. Either side can end it at any time.
+
+Usernames and friendships live in the `profiles` and `friendships` tables (`migrations/0003_friends.sql`), numbers
+in `phones` (`migrations/0004_phones.sql`). The username is optional when signing up through the API, so older
+copies of the app keep working; the site asks for one on sign-up. After signing up or in, and once per device for an
+account already signed in, it asks for whatever is missing of username and number, which people can skip.
+
+Numbers are looked up by the SHA-256 of their E.164 form (`+15551234567`), so the app sends a phone's contacts only as
+hashes, and the worker answers who matches without storing what was sent. That keeps contacts out of requests and
+logs, though a hash of a phone number can be reversed by trying every number, so lookups by number are rate limited
+per account. Numbers are not verified: like emails, the first account to add one has it.
+
 ### Timetables
 
 Planning ahead uses the railroads' published timetables (static GTFS), all public:

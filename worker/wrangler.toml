@@ -7,8 +7,9 @@ workers_dev = true
 
 [vars]
 # Pages allowed to read the feeds from a browser. localhost is always allowed, for local testing;
-# "null" is what Chrome sends for a page opened as a file.
-ALLOWED_ORIGINS = "https://sm3625.github.io,null"
+# "null" is what Chrome sends for a page opened as a file. The apps (../app) load the page from
+# capacitor://localhost on iOS and https://localhost on Android.
+ALLOWED_ORIGINS = "https://sm3625.github.io,capacitor://localhost,https://localhost,null"
 
 # Where accounts are stored: "d1" (Cloudflare D1, set up by `npm run deploy`), "turso" (needs the secrets
 # TURSO_DATABASE_URL and TURSO_AUTH_TOKEN) or "memory" (testing only: lost on restart). See README.md.

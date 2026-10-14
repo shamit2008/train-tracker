@@ -190,3 +190,129 @@ test('trips', async () => {
   assert.equal((await call('DELETE', '/v1/me/trips/' + added.body.trip.id, { token })).status, 404);
   assert.deepEqual((await call('GET', '/v1/me/trips', { token })).body.trips.map((t) => t.num), ['7']);
 });
+
+test('usernames', async () => {
+  const { call } = server();
+  const up = await call('POST', '/v1/auth/signup', { body: { ...creds, username: ' @Zephyr_Fan ' } });
+  assert.equal(up.status, 201);
+  assert.equal(up.body.user.username, 'zephyr_fan');
+  const taken = await call('POST', '/v1/auth/signup', { body: { email: 'other@example.com', password: creds.password, username: 'zephyr_fan' } });
+  assert.equal(taken.body.error.code, 'username_taken');
+  assert.equal((await call('POST', '/v1/auth/login', { body: { email: 'other@example.com', password: creds.password } })).status, 401);   // not half-made
+  for (const bad of ['ab', '1train', 'has space', 'x'.repeat(21), 'émile']) {
+    assert.equal((await call('POST', '/v1/auth/signup', { body: { email: 'b@example.com', password: creds.password, username: bad } })).body.error.code, 'bad_username', bad);
+  }
+  // accounts made without one (older apps) choose one later
+  const later = await call('POST', '/v1/auth/signup', { body: { email: 'later@example.com', password: creds.password } });
+  assert.equal(later.body.user.username, null);
+  const token = later.body.token;
+  assert.equal((await call('PUT', '/v1/me/profile', { token, body: { username: 'zephyr_fan' } })).status, 409);
+  assert.equal((await call('PUT', '/v1/me/profile', { token, body: { username: 'Cardinal' } })).body.user.username, 'cardinal');
+  assert.equal((await call('GET', '/v1/me', { token })).body.user.username, 'cardinal');
+});
+
+test('friends and their trips', async () => {
+  const { call } = server();
+  const sign = async (name, ip) => (await call('POST', '/v1/auth/signup', { ip, body: { email: name + '@example.com', password: creds.password, username: name } })).body.token;
+  const ann = await sign('ann', '1.1.1.1'), ben = await sign('ben', '2.2.2.2'), cat = await sign('cat', '3.3.3.3');
+  const nobody = (await call('POST', '/v1/auth/signup', { body: { email: 'nobody@example.com', password: creds.password } })).body.token;
+  const friends = async (token) => (await call('GET', '/v1/me/friends', { token })).body;
+
+  assert.equal((await call('POST', '/v1/me/friends', { body: { username: 'ben' } })).status, 401);
+  assert.equal((await call('POST', '/v1/me/friends', { token: nobody, body: { username: 'ben' } })).body.error.code, 'no_username');
+  assert.equal((await call('POST', '/v1/me/friends', { token: ann, body: { username: 'ghost' } })).status, 404);
+  assert.equal((await call('POST', '/v1/me/friends', { token: ann, body: { username: 'ann' } })).body.error.code, 'self');
+
+  const asked = await call('POST', '/v1/me/friends', { token: ann, body: { username: '@Ben' } });
+  assert.equal(asked.status, 201);
+  assert.equal(asked.body.status, 'pending');
+  assert.equal((await call('POST', '/v1/me/friends', { token: ann, body: { username: 'ben' } })).body.status, 'pending');   // asking twice is fine
+  assert.deepEqual((await friends(ann)).outgoing.map((f) => f.username), ['ben']);
+  assert.deepEqual((await friends(ben)).incoming.map((f) => f.username), ['ann']);
+
+  const day = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+  const at = Date.parse(day + 'T19:00:00Z');
+  const trip = (num) => ({ provider: 'Amtrak', num, date: day, route: 'California Zephyr',
+    from: { code: 'CHI', name: 'Chicago Union Station', at, tz: 'America/Chicago' },
+    to: { code: 'DEN', name: 'Denver', at: at + 18 * 3600000, tz: 'America/Denver' } });
+  await call('POST', '/v1/me/trips', { token: ben, body: trip('5') });
+  await call('POST', '/v1/me/trips', { token: cat, body: trip('7') });
+  assert.deepEqual((await call('GET', '/v1/me/friends/trips', { token: ann })).body.trips, []);   // not friends until ben says yes
+
+  const accepted = await call('POST', '/v1/me/friends', { token: ben, body: { username: 'ann' } });
+  assert.equal(accepted.status, 200);
+  assert.equal(accepted.body.status, 'accepted');
+  const a = await friends(ann);
+  assert.deepEqual(a.friends.map((f) => f.username), ['ben']);
+  assert.deepEqual([a.incoming, a.outgoing], [[], []]);
+  const seen = (await call('GET', '/v1/me/friends/trips', { token: ann })).body.trips;
+  assert.deepEqual(seen.map((t) => [t.username, t.num, t.to.code]), [['ben', '5', 'DEN']]);
+  assert.equal(seen[0].email, undefined);
+  assert.deepEqual((await call('GET', '/v1/me/friends/trips', { token: ben })).body.trips, []);   // ann has no trips
+
+  // declining, cancelling and unfriending are all one DELETE, from either side
+  await call('POST', '/v1/me/friends', { token: cat, body: { username: 'ann' } });
+  assert.equal((await call('DELETE', '/v1/me/friends/cat', { token: ann })).status, 204);
+  assert.deepEqual((await friends(cat)).outgoing, []);
+  assert.equal((await call('DELETE', '/v1/me/friends/cat', { token: ann })).status, 404);
+  assert.equal((await call('DELETE', '/v1/me/friends/ann', { token: ben })).status, 204);
+  assert.deepEqual((await friends(ann)).friends, []);
+  assert.deepEqual((await call('GET', '/v1/me/friends/trips', { token: ann })).body.trips, []);
+
+  // a deleted account leaves no friendships behind
+  await call('POST', '/v1/me/friends', { token: ann, body: { username: 'ben' } });
+  await call('DELETE', '/v1/me', { token: ben, body: { password: creds.password } });
+  assert.deepEqual(await friends(ann), { friends: [], incoming: [], outgoing: [] });
+});
+
+const sha = async (s) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+test('phone numbers: set, find by number, match contacts', async () => {
+  const { call } = server();
+  const sign = async (name, ip) => (await call('POST', '/v1/auth/signup', { ip, body: { email: name + '@example.com', password: creds.password, username: name } })).body.token;
+  const ann = await sign('ann', '1.1.1.1'), ben = await sign('ben', '2.2.2.2'), cat = await sign('cat', '3.3.3.3');
+
+  for (const bad of ['5551234567', '+0123456789', '+1 555 123 4567', '+1555', 'x'.repeat(20)]) {
+    assert.equal((await call('PUT', '/v1/me/profile', { token: ben, body: { phone: bad } })).body.error.code, 'bad_phone', bad);
+  }
+  const set = await call('PUT', '/v1/me/profile', { token: ben, body: { phone: '+15551230002' } });
+  assert.equal(set.body.user.phone, '+15551230002');
+  assert.equal(set.body.user.username, 'ben');
+  assert.equal((await call('GET', '/v1/me', { token: ben })).body.user.phone, '+15551230002');
+  assert.equal((await call('PUT', '/v1/me/profile', { token: cat, body: { phone: '+15551230002' } })).body.error.code, 'phone_taken');
+  await call('PUT', '/v1/me/profile', { token: cat, body: { username: 'catherine', phone: '+447700900003' } });
+
+  // adding by number: the app sends the number's hash
+  const asked = await call('POST', '/v1/me/friends', { token: ann, body: { phoneHash: await sha('+15551230002') } });
+  assert.equal(asked.status, 201);
+  assert.deepEqual(asked.body, { status: 'pending', username: 'ben' });
+  assert.equal((await call('POST', '/v1/me/friends', { token: ann, body: { phoneHash: await sha('+15559999999') } })).status, 404);
+  assert.equal((await call('POST', '/v1/me/friends', { token: ann, body: { phoneHash: '+15551230002' } })).body.error.code, 'bad_phone');
+  assert.equal((await call('POST', '/v1/me/friends', { token: ben, body: { username: 'ann' } })).body.status, 'accepted');
+
+  // contacts: who's on Trackside, and how they relate to you; nothing for numbers without an account
+  await call('POST', '/v1/me/friends', { token: cat, body: { username: 'ann' } });
+  await call('PUT', '/v1/me/profile', { token: ann, body: { phone: '+15551230001' } });
+  const book = await Promise.all(['+15551230001', '+15551230002', '+447700900003', '+15550000000'].map(sha));
+  const m = await call('POST', '/v1/me/friends/match', { token: ann, body: { phoneHashes: book } });
+  assert.equal(m.status, 200);
+  assert.deepEqual(m.body.matches.map((x) => [x.username, x.status]).sort(), [['ben', 'friends'], ['catherine', 'incoming']]);
+  assert.ok(m.body.matches.every((x) => book.includes(x.phoneHash)));
+  assert.deepEqual((await call('POST', '/v1/me/friends/match', { token: cat, body: { phoneHashes: book } })).body.matches.map((x) => [x.username, x.status]).sort(),
+    [['ann', 'requested'], ['ben', null]]);
+  assert.equal((await call('POST', '/v1/me/friends/match', { token: ann, body: { phoneHashes: ['nope'] } })).status, 400);
+  assert.equal((await call('POST', '/v1/me/friends/match', { token: ann, body: { phoneHashes: Array(2001).fill(book[0]) } })).status, 400);
+  assert.equal((await call('POST', '/v1/me/friends/match', { token: ann, body: { phoneHashes: Array(2000).fill(book[0]) } })).status, 200);
+
+  // friends never see each other's numbers or emails
+  const list = JSON.stringify((await call('GET', '/v1/me/friends', { token: ben })).body);
+  assert.ok(!list.includes('+1555') && !list.includes('@example.com'));
+
+  // removing the number makes it unfindable; lookups by number are rate limited
+  await call('PUT', '/v1/me/profile', { token: ben, body: { phone: null } });
+  assert.equal((await call('GET', '/v1/me', { token: ben })).body.user.phone, null);
+  assert.deepEqual((await call('POST', '/v1/me/friends/match', { token: cat, body: { phoneHashes: [book[1]] } })).body.matches, []);
+  let last;
+  for (let i = 0; i < 30; i++) last = await call('POST', '/v1/me/friends/match', { token: cat, body: { phoneHashes: [book[0]] } });
+  assert.equal(last.status, 429);
+});

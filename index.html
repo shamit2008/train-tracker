@@ -130,6 +130,11 @@ button:disabled { cursor: default; opacity: .5; }
 .icon-btn:hover { background: var(--paper-2); border-color: var(--border); }
 .icon-btn[aria-expanded="true"], .icon-btn[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .icon-btn svg { width: 16px; height: 16px; }
+.head-btn { position: relative; }
+.head-btn svg { width: 18px; height: 18px; }
+.head-badge { position: absolute; top: -6px; right: -6px; display: grid; place-items: center; min-width: 18px; height: 18px; padding: 1px 4px 0; border-radius: 9px; background: var(--bad); color: var(--paper); font-size: 11px; font-weight: 800; line-height: 1; }
+.avatar { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: var(--paper); font-size: 13px; font-weight: 800; text-transform: uppercase; padding-top: 1px; }
+#acctBtn[data-signed-in] svg { display: none; }
 
 /* search + autocomplete */
 .search { position: relative; }
@@ -731,13 +736,13 @@ button:disabled { cursor: default; opacity: .5; }
 .pb-note { font-size: 12px; color: var(--muted); margin: 0; }
 
 /* account */
-.acct-note { margin: 0 0 8px; font-size: 13px; color: var(--muted); line-height: 1.45; }
-.acct-note b { color: var(--ink); font-weight: 700; overflow-wrap: anywhere; }
 #acctSync.warn { color: var(--late-text); }
-.acct-box .btn { width: 100%; }
-.acct-row { display: flex; gap: 16px; }
+#acctEmail2 { overflow-wrap: anywhere; }
+.acct-quick { display: flex; gap: 8px; margin: -4px 0 22px; }
+.acct-quick .btn { flex: 1; height: 44px; }
 .acct-card { position: relative; }
 .acct-card h2 { margin: 0; font-size: 21px; font-weight: 800; padding-right: 44px; }
+.acct-card h2:focus { outline: none; }
 .acct-card h3 { margin: 4px 0 0; font-size: 15px; font-weight: 700; }
 .acct-card .acct-lede { margin: 6px 0 16px; }
 .acct-x { position: absolute; top: 10px; right: 10px; font-size: 20px; line-height: 1; border-color: transparent; }
@@ -776,6 +781,25 @@ button:disabled { cursor: default; opacity: .5; }
 .mt-past summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
 .mt-past .mt-list { margin-top: 6px; opacity: .8; }
 
+/* friends */
+#frSec .btn { margin-top: 10px; }
+.mt-who { text-transform: none; letter-spacing: 0; color: var(--ink); }
+.fr-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin: -2px 0 0 2px; padding: 1px 5px 0; border-radius: 9px; background: var(--bad); color: var(--paper); font-size: 11.5px; font-weight: 800; }
+.fr-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+#frAddForm > label { display: block; }
+#frPeople:empty, #frFound:empty { display: none; }
+.fr-contacts { width: 100%; height: 44px; margin-top: 14px; }
+#friends .hint { margin: 14px 0 0; }
+.fr-contacts svg { width: 17px; height: 17px; }
+.fr-group { margin-top: 20px; }
+.fr-group h3 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.fr-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--rule); font-size: 14.5px; }
+.fr-row > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.fr-row small { display: block; font-size: 12.5px; color: var(--muted); }
+.fr-row .text-btn { padding: 8px 4px; }
+.d-friends { margin: 0 20px 12px; padding: 8px 12px 6px; border-left: 3px solid var(--ink); background: var(--paper-2); font-size: 13.5px; }
+.acct-welcome { margin-bottom: 14px; }
+
 /* trip planner */
 .plan-card { width: min(560px, 100%); }
 .plan-mode { margin-bottom: 14px; }
@@ -801,13 +825,7 @@ button:disabled { cursor: default; opacity: .5; }
 .ob-card .logo { pointer-events: none; }
 .ob-card h2 { margin: 6px 0 0; font-size: 22px; line-height: 1.2; font-weight: 800; }
 .ob-card p { margin: 0; color: var(--muted); font-size: 14.5px; }
-.ob-paths { display: grid; gap: 8px; }
-.ob-paths button { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; align-items: center; text-align: left; padding: 12px 14px 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--paper); }
-.ob-paths button:hover { border-color: var(--ink); background: var(--paper-2); }
-.ob-paths svg { width: 22px; height: 22px; justify-self: center; }
-.ob-paths b { display: block; font-size: 15.5px; }
-.ob-paths small { display: block; color: var(--muted); font-size: 13px; }
-.ob-skip { justify-self: center; }
+.ob-skip { justify-self: center; display: block; margin: 14px auto 0; }
 
 .foot { padding: 10px 20px 12px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--faint); line-height: 1.45; }
 .foot a { color: var(--muted); }
@@ -921,6 +939,9 @@ button:disabled { cursor: default; opacity: .5; }
   .head .wordmark { display: none; }
   #searchBox { grid-column: 2; grid-row: 1; }
   .head-actions { grid-column: 3; grid-row: 1; }
+  /* room for Friends and Account: the map's Live badge refreshes, and Back and the tabs do what the logo did */
+  .head-actions #refresh, .head .logo { display: none; }
+  #searchBox { grid-column: 1 / 3; }
   .tabs { grid-column: 1 / -1; }
   .search input { height: 44px; }
   .search > svg { top: 14px; }
@@ -972,8 +993,6 @@ button:disabled { cursor: default; opacity: .5; }
 }
 @media (max-width: 360px) and (min-height: 501px) {
   .region-sel select { max-width: 118px; }
-  .head .logo { display: none; }
-  #searchBox { grid-column: 1 / 3; }
 }
 /* short portrait phones: pinch zooms, so drop the secondary zoom buttons rather than let them hit the layer button */
 @media (max-width: 559px) and (max-height: 700px), (max-width: 760px) and (min-height: 501px) and (max-height: 700px) {
@@ -1005,15 +1024,13 @@ button:disabled { cursor: default; opacity: .5; }
   .compare tbody th { grid-column: 1 / -1; width: auto; padding-bottom: 0; font-size: 12px; }
 }
 
-/* small or short screens: the welcome card keeps its choices and Skip in view */
+/* small or short screens: the welcome card keeps "Not now" in view */
 @media (max-height: 640px), (max-width: 380px) {
   .onboard { padding: 10px; }
   .ob-card { padding: 16px 16px 0; gap: 10px; max-height: calc(100% - 4px); }
   .ob-card h2 { font-size: 19px; margin-top: 2px; }
   .ob-card p { font-size: 14px; }
-  .ob-paths button { min-height: 52px; padding: 8px 12px 6px; }
-  .ob-paths small { display: none; }
-  .ob-skip { position: sticky; bottom: 0; justify-self: stretch; min-height: 48px; background: var(--paper); border-top: 1px solid var(--rule); border-radius: 0; }
+  .ob-skip { position: sticky; bottom: 0; width: 100%; margin: 10px 0 0; min-height: 48px; background: var(--paper); border-top: 1px solid var(--rule); border-radius: 0; }
 }
 
 /* landscape phones use a narrow side panel, so the map and the list are both usable */
@@ -1053,6 +1070,8 @@ button:disabled { cursor: default; opacity: .5; }
           <span class="wordmark"><span class="trk">Track</span>side</span>
         </a>
         <div class="head-actions">
+          <button class="icon-btn head-btn" id="friendsBtn" type="button" title="Friends" aria-label="Friends" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.2" r="2.4"/><path d="M1.6 13.6c.5-2.6 2.2-4 4.4-4s3.9 1.4 4.4 4"/><path d="M10.4 2.9a2.4 2.4 0 0 1 0 4.6M12 9.8c1.3.5 2.1 1.8 2.4 3.8"/></svg><span class="head-badge" id="frBadgeHead" hidden></span></button>
+          <button class="icon-btn head-btn" id="acctBtn" type="button" title="Sign in or create an account" aria-label="Sign in or create an account" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="5.4" r="2.8"/><path d="M2.6 14.2c.6-3 2.7-4.6 5.4-4.6s4.8 1.6 5.4 4.6"/></svg><span class="avatar" id="acctAvatar" aria-hidden="true" hidden></span></button>
           <button class="icon-btn" id="refresh" type="button" title="Refresh now" aria-label="Refresh now">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg>
           </button>
@@ -1075,16 +1094,6 @@ button:disabled { cursor: default; opacity: .5; }
         <button type="button" role="tab" id="tab-stations" data-tab="stations" aria-controls="view-stations" aria-selected="false" tabindex="-1">Stations</button>
       </div>
       <div class="pop settings" id="settings" role="dialog" aria-label="Settings" hidden>
-        <fieldset class="acct-box" id="acctBox" hidden><legend>Account</legend>
-          <div id="acctOut">
-            <p class="acct-note">Sign in to keep your saved trains, stations and settings on all your devices.</p>
-            <button type="button" class="btn primary" id="acctOpen">Sign in or create an account</button>
-          </div>
-          <div id="acctIn" hidden>
-            <p class="acct-note">Signed in as <b id="acctEmail"></b><br><span id="acctSync" role="status">Synced</span></p>
-            <div class="acct-row"><button type="button" class="text-btn" id="acctManage">Manage account</button><button type="button" class="text-btn" id="acctSignOut">Sign out</button></div>
-          </div>
-        </fieldset>
         <fieldset><legend>Theme</legend><div class="seg">
           <label><input type="radio" name="theme" value="auto"><span>Auto</span></label>
           <label><input type="radio" name="theme" value="light"><span>Light</span></label>
@@ -1099,7 +1108,6 @@ button:disabled { cursor: default; opacity: .5; }
           <label><input type="radio" name="density" value="detailed"><span>Detailed</span></label>
           <label><input type="radio" name="density" value="compact"><span>Compact</span></label>
         </div></fieldset>
-        <button type="button" class="text-btn" id="showWelcome">Show the welcome screen again</button>
       </div>
     </div>
 
@@ -1157,6 +1165,11 @@ button:disabled { cursor: default; opacity: .5; }
           <h3>Your trips <small id="mtCount"></small></h3>
           <div id="mtList"></div>
           <button type="button" class="btn" id="planOpen">Plan a trip</button>
+        </div>
+        <div class="sec" id="frSec" hidden>
+          <h3>Friends' trips <small id="frCount"></small></h3>
+          <div id="frList"></div>
+          <button type="button" class="btn" id="friendsOpen">Friends<span class="fr-badge" id="frBadge" hidden></span></button>
         </div>
         <div class="sec">
           <h3>Your trains <small id="favCount"></small></h3>
@@ -1259,9 +1272,12 @@ button:disabled { cursor: default; opacity: .5; }
   <div class="ob-card acct-card">
     <button type="button" class="icon-btn acct-x" id="acctClose" aria-label="Close">×</button>
     <section id="acctAuth">
-      <h2 id="acctTitle">Sign in</h2>
+      <div class="acct-welcome" id="acctWelcome" hidden><span class="logo"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="currentColor"/><path d="M11 5v22M21 5v22" stroke="var(--paper)" stroke-width="2.4" stroke-linecap="round"/><path d="M7 10h18M7 16h18M7 22h18" stroke="var(--paper)" stroke-width="2" stroke-linecap="round"/></svg><span class="wordmark"><span class="trk">Track</span>side</span></span></div>
+      <h2 id="acctTitle" tabindex="-1">Sign in</h2>
       <p class="acct-lede" id="acctLede">Your saved trains, stations and settings follow you to any device you sign in on.</p>
       <form class="acct-form" id="acctForm" novalidate>
+        <label id="acctUserRow" hidden>Username<input name="username" id="acctUserIn" autocomplete="nickname" autocapitalize="off" spellcheck="false" maxlength="21">
+          <span class="acct-hint">How friends find you. Letters, numbers and underscores.</span></label>
         <label>Email<input type="email" name="email" id="acctEmailIn" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required></label>
         <label>Password<input type="password" name="password" id="acctPwIn" autocomplete="current-password" required>
           <span class="acct-hint" id="acctPwHint" hidden>At least 8 characters.</span></label>
@@ -1270,6 +1286,7 @@ button:disabled { cursor: default; opacity: .5; }
       </form>
       <p class="acct-switch"><span id="acctSwitchText">New to Trackside?</span> <button type="button" class="text-btn" id="acctSwitch">Create an account</button></p>
       <p class="acct-switch" id="acctForgotRow"><button type="button" class="text-btn" id="acctForgot">Forgot your password?</button></p>
+      <button type="button" class="text-btn ob-skip" id="acctLater" hidden>Not now, just show the map</button>
     </section>
     <section id="acctForgotView" hidden>
       <h2>Reset your password</h2>
@@ -1292,9 +1309,33 @@ button:disabled { cursor: default; opacity: .5; }
       </form>
       <p class="acct-switch" id="resetAgain" hidden><button type="button" class="text-btn" id="resetNew">Send a new link</button></p>
     </section>
+    <section id="acctProfileView" hidden>
+      <h2 tabindex="-1">Help friends find you</h2>
+      <p class="acct-lede" id="promptLede"></p>
+      <form class="acct-form" id="promptForm" novalidate>
+        <label id="promptUserRow">Username<input name="username" autocomplete="nickname" autocapitalize="off" spellcheck="false" maxlength="21">
+          <span class="acct-hint">3 to 20 letters, numbers or underscores, starting with a letter.</span></label>
+        <label id="promptPhoneRow">Phone number<input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="(555) 123-4567">
+          <span class="acct-hint">Friends who have your number in their contacts can find you. They never see it. Outside the US and Canada, start with + and the country code.</span></label>
+        <p class="acct-err" role="alert" hidden></p>
+        <button type="submit" class="btn primary">Save</button>
+      </form>
+      <button type="button" class="text-btn ob-skip" id="promptSkip">Skip for now</button>
+    </section>
     <section id="acctManageView" hidden>
-      <h2>Your account</h2>
-      <p class="acct-lede">Signed in as <b id="acctEmail2"></b>.</p>
+      <h2 tabindex="-1">Your account</h2>
+      <p class="acct-lede">Signed in as <b id="acctEmail2"></b>. <span id="acctSync" role="status">Synced</span></p>
+      <div class="acct-quick"><button type="button" class="btn" id="acctFriends"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.2" r="2.4"/><path d="M1.6 13.6c.5-2.6 2.2-4 4.4-4s3.9 1.4 4.4 4"/><path d="M10.4 2.9a2.4 2.4 0 0 1 0 4.6M12 9.8c1.3.5 2.1 1.8 2.4 3.8"/></svg>Friends</button><button type="button" class="btn" id="acctSignOut">Sign out</button></div>
+      <form class="acct-form" id="profileForm" novalidate>
+        <h3>Profile</h3>
+        <p class="acct-hint">Friends find you by username or phone number. They see your username, never your number or email.</p>
+        <label>Username<input name="username" autocomplete="nickname" autocapitalize="off" spellcheck="false" maxlength="21" required></label>
+        <label>Phone number<input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="(555) 123-4567">
+          <span class="acct-hint">US and Canada numbers work as typed; others start with + and the country code. Leave it empty to remove it.</span></label>
+        <p class="acct-err" role="alert" hidden></p>
+        <p class="acct-ok" role="status" hidden></p>
+        <button type="submit" class="btn">Save profile</button>
+      </form>
       <form class="acct-form" id="pwForm" novalidate>
         <h3>Change password</h3>
         <input type="email" name="username" class="sr-only acct-user" autocomplete="username" tabindex="-1" aria-hidden="true">
@@ -1341,17 +1382,22 @@ button:disabled { cursor: default; opacity: .5; }
   </div>
 </div>
 
-<div class="onboard" id="onboard" role="dialog" aria-modal="true" aria-labelledby="obTitle" hidden>
-  <div class="ob-card">
-    <span class="logo"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="currentColor"/><path d="M11 5v22M21 5v22" stroke="var(--paper)" stroke-width="2.4" stroke-linecap="round"/><path d="M7 10h18M7 16h18M7 22h18" stroke="var(--paper)" stroke-width="2" stroke-linecap="round"/></svg><span class="wordmark"><span class="trk">Track</span>side</span></span>
-    <h2 id="obTitle">Live trains across North America</h2>
-    <p>Amtrak, VIA Rail, Brightline and commuter rail positions, from LIRR and Metro-North to Metrolink and Caltrain, refreshed about once a minute. Where would you like to start?</p>
-    <div class="ob-paths">
-      <button type="button" data-ob="explore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg><span><b>Explore live trains</b><small>Browse the map by region and see who's running late.</small></span></button>
-      <button type="button" data-ob="track"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><span><b>Find my train</b><small>Search by train number, route or station.</small></span></button>
-      <button type="button" data-ob="near"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg><span><b>See trains near me</b><small>Uses your location, which stays on this device.</small></span></button>
-    </div>
-    <button type="button" class="text-btn ob-skip" data-ob="skip">Skip, just show the map</button>
+<div class="onboard" id="friends" role="dialog" aria-modal="true" aria-labelledby="frTitle" hidden>
+  <div class="ob-card acct-card">
+    <button type="button" class="icon-btn acct-x" data-close aria-label="Close">×</button>
+    <h2 id="frTitle" tabindex="-1">Friends</h2>
+    <section id="frMainView">
+      <p class="acct-lede">You're <b id="frMe"></b> <button type="button" class="text-btn" id="frRename">Edit profile</button><br>Friends see each other's trips. They never see your email or phone number.</p>
+      <form class="acct-form" id="frAddForm" novalidate>
+        <label for="frAddIn">Add a friend by username or phone number</label>
+        <div class="fr-add"><input id="frAddIn" name="who" placeholder="Username or phone number" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="32"><button type="submit" class="btn primary">Add</button></div>
+        <p class="acct-err" role="alert" hidden></p>
+        <p class="acct-ok" role="status" hidden></p>
+      </form>
+      <button type="button" class="btn fr-contacts" id="frContacts" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="5.4" r="2.8"/><path d="M2.6 14.2c.6-3 2.7-4.6 5.4-4.6s4.8 1.6 5.4 4.6"/></svg>Find friends in your contacts</button>
+      <div id="frFound" aria-live="polite"></div>
+      <div id="frPeople" aria-live="polite"></div>
+    </section>
   </div>
 </div>
 
@@ -1500,6 +1546,11 @@ const API = 'https://api-v3.amtraker.com/v3';
    localhost falls back to the local dev server (`npm run dev` in worker/). Either way, no keys live here. */
 const FEEDS_WORKER = 'https://trackside-feeds.trackside-feeds.workers.dev';
 const FEEDS_API = FEEDS_WORKER || (/^(file:|https?:\/\/(localhost|127\.0\.0\.1)[:/])/.test(location.href) ? 'http://localhost:8787' : '');
+/* In the iOS and Android apps (app/, built with Capacitor), app/build.mjs adds Capacitor's runtime and the site's public
+   address. On the website neither is there, IN_APP is false, and the page behaves as it always has. */
+const IN_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const SITE_URL = (IN_APP && window.TRACKSIDE_SITE_URL) || '';
+const nativePlugin = (name) => (IN_APP && window.capacitorExports ? window.capacitorExports.registerPlugin(name) : null);
 const FEEDS_KEEP_MS = 5 * 60000;   // if the worker hiccups, keep its last trains this long rather than dropping them
 const REFRESH_S = 60;
 const STALE_MIN = 20;
@@ -1557,7 +1608,7 @@ const store = {
    Writes made while the page starts up aren't changes: they only store defaults. */
 const SYNCED = new Set(['favTrains', 'favStations', 'recentTrains', 'theme', 'motion', 'mapStyle', 'density', 'trainLabels']);
 let syncMeta = store.get('syncMeta', {});
-let session = store.get('session', null);   // { token, email }
+let session = store.get('session', null);   // { token, email, username, phone }
 let booting = true, applyingRemote = false, pushTimer = 0, lastPull = 0;
 const dirty = new Set();
 
@@ -3061,13 +3112,35 @@ function toast(msg, ms0 = 7000) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, ms0);
 }
+/* Location: in the app, the native plugin (the phone's own permission prompt, and it works under the app's
+   capacitor:// address); on the web, the browser's. Returns a function that stops watching. */
+const nativeGeo = nativePlugin('Geolocation');
+// the plugin's errors, as the browser's codes: 1 denied, 2 unavailable, 3 timed out
+const geoCode = (err) => (/GLOC-000[38]$/.test((err && err.code) || '') ? 1 : /GLOC-0010$/.test((err && err.code) || '') ? 3 : 2);
+function watchLocation(onPos, onErr, opts) {
+  if (!nativeGeo) {
+    const id = navigator.geolocation.watchPosition(onPos, onErr, opts);
+    return () => navigator.geolocation.clearWatch(id);
+  }
+  let id = null, stopped = false;
+  const fail = (err) => { if (!stopped) onErr({ code: geoCode(err), message: err && err.message }); };
+  nativeGeo.requestPermissions()
+    .then((s) => {
+      // Android lets people share only an approximate location, which is all Trackside needs
+      if (s.location !== 'granted' && s.coarseLocation !== 'granted') throw { code: 'OS-PLUG-GLOC-0003' };
+      return nativeGeo.watchPosition(opts, (pos, err) => { if (stopped) return; if (err) fail(err); else if (pos) onPos(pos); });
+    })
+    .then((cid) => { id = cid; if (stopped) nativeGeo.clearWatch({ id }); })
+    .catch(fail);
+  return () => { stopped = true; if (id != null) nativeGeo.clearWatch({ id }); };
+}
 function startLocate(fly) {
   if (location.protocol === 'file:') {
     locState = 'unavailable'; onLocationChange();
     toast('Location only works when Trackside is opened from a web address (http:// or https://), not as a file on your computer. Browsers block it for local files.');
     return;
   }
-  if (!window.isSecureContext || !('geolocation' in navigator)) {
+  if (!nativeGeo && (!window.isSecureContext || !('geolocation' in navigator))) {
     locState = 'unavailable'; onLocationChange();
     toast('Location needs a secure web address (https:// or localhost). This page was opened over plain http.');
     return;
@@ -3079,12 +3152,12 @@ function startLocate(fly) {
   $('#locate').setAttribute('aria-pressed', 'true');
   $('#locate').setAttribute('aria-label', 'Hide my location');
   $('#locate').title = 'Hide my location';
-  meWatch = navigator.geolocation.watchPosition(onPosition, onPositionError, { enableHighAccuracy: false, maximumAge: 30000, timeout: 30000 });
+  meWatch = watchLocation(onPosition, onPositionError, { enableHighAccuracy: false, maximumAge: 30000, timeout: 30000 });
   store.set('locate', true);
   onLocationChange();
 }
 function stopLocate(remember = true) {
-  if (meWatch != null) navigator.geolocation.clearWatch(meWatch);
+  if (meWatch) meWatch();
   meWatch = null;
   me = null;
   if (locState !== 'denied') locState = 'off';
@@ -3116,7 +3189,7 @@ function onPositionError(err) {
   stopLocate(err.code !== 1);
   locState = err.code === 1 ? 'denied' : 'off';
   onLocationChange();
-  toast(err.code === 1 ? 'Location access is blocked. Allow it for this page in your browser settings, then try again. You can still search for any train or station.'
+  toast(err.code === 1 ? (IN_APP ? 'Location access is off for Trackside. Turn it on in your phone’s Settings, then try again.' : 'Location access is blocked. Allow it for this page in your browser settings, then try again.') + ' You can still search for any train or station.'
     : err.code === 2 ? "Your location isn't available right now. Try again in a moment."
     : 'Finding your location took too long. Try again.');
 }
@@ -3949,7 +4022,8 @@ function liveFor(num) {
   return trains.filter((t) => t.num === num && !isDone(t))
     .sort((a, b) => (isPre(a) - isPre(b)) || (ms(b.stops[0]?.schDep) || 0) - (ms(a.stops[0]?.schDep) || 0));
 }
-const baseUrl = () => location.href.split('#')[0];
+// the app's own address (capacitor://localhost) means nothing to anyone else, so its links point at the website
+const baseUrl = () => (SITE_URL || location.href).split('#')[0];
 async function shareLink(url, title) {
   if (navigator.share && mqMobile.matches) {
     try { await navigator.share({ title, url }); return; } catch (err) { if (err && err.name === 'AbortError') return; }
@@ -4360,6 +4434,7 @@ function renderDetail() {
         <p>${esc(provName(t.provider))}${t.startedOn ? (pre ? ', departs ' : ', departed ') + esc(t.startedOn) : ''}</p>
       </header>
       ${banner}
+      ${friendsOnHTML(t)}
       <section class="d-sum" aria-label="Status summary">
         <div class="d-next"><span class="lbl">${esc(nextLbl || 'Status')}</span><strong>${esc(nextName || '')}</strong>${etaLine ? `<div class="d-eta">${etaLine}</div>` : ''}</div>
         <div class="d-status"><span class="pill"><span class="sw"></span>${esc(statusText(t))}</span>${vsLine ? `<span>${esc(vsLine)}</span>` : ''}</div>
@@ -4635,6 +4710,7 @@ function renderBoard() {
 /* ---------------- track a train ---------------- */
 function renderTrack() {
   renderMyTrips();
+  renderFriendTrips();
   renderFavs();
   renderRecent();
   renderTrip();
@@ -5136,31 +5212,6 @@ mqMobile.addEventListener('change', () => {
   else { sideEl.style.removeProperty('--sheet-y'); appEl.style.setProperty('--sheet-cover', '0px'); bodyEl.style.paddingBottom = ''; }
 });
 
-/* ---------------- first visit ---------------- */
-function showOnboard() {
-  $('#onboard').hidden = false;
-  setTimeout(() => $('[data-ob="explore"]').focus(), 30);
-}
-function closeOnboard(path) {
-  $('#onboard').hidden = true;
-  store.set('onboarded', true);
-  if (path === 'explore') { setTab('explore'); goRegion('national'); if (mqMobile.matches) setSheet('collapsed'); }
-  else if (path === 'track') { setTab('track'); qEl.focus(); }
-  else if (path === 'near') { setTab('track'); startLocate(true); setTimeout(() => $('#nearTrains').closest('.sec').scrollIntoView({ block: 'start' }), 60); }
-}
-$('#onboard').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-ob]');
-  if (b) closeOnboard(b.dataset.ob);
-  else if (e.target === $('#onboard')) closeOnboard('skip');
-});
-$('#onboard').addEventListener('keydown', (e) => {
-  if (e.key !== 'Tab') return;
-  const f = $$('button', $('#onboard'));
-  const i = f.indexOf(document.activeElement);
-  if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
-  else if (!e.shiftKey && i === f.length - 1) { e.preventDefault(); f[0].focus(); }
-});
-
 /* ---------------- settings + map style ---------------- */
 function togglePop(pop, btn) {
   const open = $(pop).hidden;
@@ -5188,7 +5239,6 @@ $('#settings').addEventListener('change', (e) => {
   else if (i.name === 'motion') { prefs.motion = i.value; store.set('motion', i.value); applyMotion(); }
   else if (i.name === 'density') setDensity(i.value);
 });
-$('#showWelcome').onclick = () => { closePops(); showOnboard(); };
 function setMapStyle(s) {
   prefs.mapStyle = s;
   store.set('mapStyle', s);
@@ -5347,19 +5397,29 @@ function setSyncText(t, warn) {
   el.textContent = t;
   el.classList.toggle('warn', !!warn);
 }
+/* The header's Account button: a person when signed out, the account's initial when signed in. */
 function renderAccount() {
-  $('#acctBox').hidden = !ACCOUNTS_API;
-  $('#acctOut').hidden = !!session;
-  $('#acctIn').hidden = !session;
-  if (session) $('#acctEmail').textContent = $('#acctEmail2').textContent = session.email;
+  const b = $('#acctBtn');
+  b.hidden = $('#friendsBtn').hidden = !ACCOUNTS_API;
+  b.toggleAttribute('data-signed-in', !!session);
+  $('#acctAvatar').hidden = !session;
+  $('#acctAvatar').textContent = session ? (session.username || session.email).charAt(0) : '';
+  b.title = session ? 'Your account' : 'Sign in or create an account';
+  b.setAttribute('aria-label', session ? `Your account, ${session.username ? '@' + session.username : session.email}` : 'Sign in or create an account');
+  if (session) $('#acctEmail2').textContent = session.email;
 }
-async function signIn(mode, email, password) {
-  const r = await api('POST', mode === 'signup' ? '/v1/auth/signup' : '/v1/auth/login', { email, password });
-  session = { token: r.token, email: r.user.email };
+function setSession(token, user) {
+  session = { token, email: user.email, username: user.username || null, phone: user.phone || null };
   store.set('session', session);
+  renderAccount();
+}
+async function signIn(mode, email, password, username) {
+  const r = await api('POST', mode === 'signup' ? '/v1/auth/signup' : '/v1/auth/login', mode === 'signup' ? { email, password, username } : { email, password });
+  setSession(r.token, r.user);
   renderAccount();
   await pullSync({ merge: true });
   await loadTrips();
+  loadFriends();
 }
 function endSession(msg) {
   session = null;
@@ -5368,8 +5428,15 @@ function endSession(msg) {
   clearTimeout(pushTimer);
   myTrips = [];
   store.set('tripsCache', []);
+  friendTrips = [];
+  people = NO_PEOPLE;
+  found = null;
+  store.set('friendTripsCache', []);
+  $('#friends').hidden = true;
   renderAccount();
   renderMyTrips();
+  renderFriendTrips();
+  if (topScreen() && topScreen().type === 'train') renderDetail();
   if (msg) toast(msg, 5000);
 }
 
@@ -5384,21 +5451,27 @@ function setAuthMode(m) {
   $('#acctSubmit').textContent = up ? 'Create account' : 'Sign in';
   $('#acctPwIn').setAttribute('autocomplete', up ? 'new-password' : 'current-password');
   $('#acctPwHint').hidden = !up;
+  $('#acctUserRow').hidden = !up;
   $('#acctSwitchText').textContent = up ? 'Already have an account?' : 'New to Trackside?';
   $('#acctSwitch').textContent = up ? 'Sign in' : 'Create an account';
   showErr($('#acctErr'), '');
 }
-const ACCT_VIEWS = { auth: ['#acctAuth', '#acctEmailIn'], forgot: ['#acctForgotView', '#forgotForm input'], reset: ['#acctResetView', '#resetForm input'], manage: ['#acctManageView', '#pwForm input:not(.acct-user)'] };
+const ACCT_VIEWS = { auth: ['#acctAuth', '#acctEmailIn'], forgot: ['#acctForgotView', '#forgotForm input'], reset: ['#acctResetView', '#resetForm input'],
+  profile: ['#acctProfileView', '#acctProfileView h2'], manage: ['#acctManageView', '#acctManageView h2'] };
 const ACCT_LEDE = 'Your saved trains, stations, settings and trips follow you to any device you sign in on.';
 function showAcctView(view) {
   for (const [k, [sel]] of Object.entries(ACCT_VIEWS)) $(sel).hidden = k !== view;
   $$('#acct .acct-err, #acct .acct-ok').forEach((el) => showErr(el, ''));
-  setTimeout(() => $(ACCT_VIEWS[view][1]).focus(), 30);
+  // read when it fires, so a caller can switch to sign-up first; the welcome doesn't pop up a phone's keyboard unasked
+  setTimeout(() => {
+    const first = view === 'profile' && !mqMobile.matches && $$('#promptForm input').find((i) => i.getClientRects().length);
+    (first || $(welcoming && view === 'auth' ? '#acctTitle' : view === 'auth' && acctMode === 'signup' ? '#acctUserIn' : ACCT_VIEWS[view][1])).focus();
+  }, 30);
 }
-/* view: auth, forgot, reset or manage. lede: why the dialog opened, when it's for something in particular. */
+/* view: auth, forgot, reset, profile or manage. lede: why the dialog opened, when it's for something in particular. */
 function openAccount(view, lede) {
   closePops();
-  $('#plan').hidden = true;
+  $('#plan').hidden = $('#friends').hidden = true;
   $('#acct').hidden = false;
   $$('#acct form').forEach((f) => f.reset());
   $$('#acct .acct-user').forEach((i) => { i.value = session ? session.email : ''; });   // lets password managers match the account
@@ -5409,8 +5482,24 @@ function openAccount(view, lede) {
 }
 function closeAccount() {
   $('#acct').hidden = true;
-  $('#settingsBtn').focus();
+  if (welcoming) {
+    welcoming = false;
+    store.set('welcomed', true);
+    $('#acctWelcome').hidden = $('#acctLater').hidden = true;
+    return;
+  }
+  if ($('#acctBtn').getClientRects().length) $('#acctBtn').focus();
 }
+/* The first time someone opens Trackside signed out, it offers an account: trips, friends and sync need one.
+   Everything else works without, so "Not now" is always there. */
+let welcoming = false;
+function openWelcome() {
+  welcoming = true;
+  openAccount('auth', 'Save the trains you’re taking, see where your friends are riding, and keep your trains and settings on every device.');
+  setAuthMode('signup');
+  $('#acctWelcome').hidden = $('#acctLater').hidden = false;
+}
+$('#acctLater').onclick = closeAccount;
 $('#acctForgot').onclick = () => {
   const typed = $('#acctEmailIn').value.trim();
   showAcctView('forgot');
@@ -5440,23 +5529,23 @@ $('#resetForm').addEventListener('submit', (e) => {
     try {
       const r = await api('POST', '/v1/auth/reset/confirm', { token: resetToken, password: f.password.value });
       resetToken = null;
-      session = { token: r.token, email: r.user.email };
-      store.set('session', session);
+      setSession(r.token, r.user);
       renderAccount();
       closeAccount();
       toast(`Password changed. You’re signed in as ${session.email}.`, 5000);
       await pullSync({ merge: true });
       await loadTrips();
+      loadFriends();
     } catch (ex) {
       showErr(err, ex.message);
       $('#resetAgain').hidden = ex.code !== 'bad_token';
     }
   });
 });
-$('#acctOpen').onclick = () => openAccount('auth');
-$('#acctManage').onclick = () => openAccount('manage');
+$('#acctBtn').onclick = () => (session ? openManage() : openAccount('auth'));
+$('#acctFriends').onclick = () => { closeAccount(); openFriends(); };
 $('#acctClose').onclick = closeAccount;
-$('#acctSwitch').onclick = () => { setAuthMode(acctMode === 'signup' ? 'signin' : 'signup'); $('#acctEmailIn').focus(); };
+$('#acctSwitch').onclick = () => { setAuthMode(acctMode === 'signup' ? 'signin' : 'signup'); $(acctMode === 'signup' ? '#acctUserIn' : '#acctEmailIn').focus(); };
 $('#acct').addEventListener('click', (e) => { if (e.target === $('#acct')) closeAccount(); });
 /* Keeps Tab inside an open dialog. */
 function trapTab(dialog) {
@@ -5472,15 +5561,18 @@ trapTab($('#acct'));
 $('#acctForm').addEventListener('submit', (e) => {
   e.preventDefault();
   const email = $('#acctEmailIn').value.trim(), password = $('#acctPwIn').value;
+  const username = normUsername($('#acctUserIn').value);
   const err = $('#acctErr');
+  if (acctMode === 'signup' && !USERNAME_RE.test(username)) { showErr(err, 'Choose a username: ' + USERNAME_RULE); return; }
   if (!email || !password) { showErr(err, 'Enter your email and password.'); return; }
   if (acctMode === 'signup' && password.length < 8) { showErr(err, 'Use a password of at least 8 characters.'); return; }
   const mode = acctMode;
   busy($('#acctSubmit'), async () => {
     try {
-      await signIn(mode, email, password);
-      closeAccount();
-      toast(mode === 'signup' ? 'Account created. Your saved trains, stations and settings now sync.' : `Signed in as ${session.email}.`, 4500);
+      await signIn(mode, email, password, username);
+      toast(mode === 'signup' ? `Account created. Your trips and saved trains now sync, and friends can add you as @${session.username}.` : `Signed in as ${session.email}.`, 5000);
+      if (needsProfile()) openProfilePrompt(mode === 'signup' ? { lede: 'Your account is ready. Add your phone number too, so friends who have it in their contacts can find you.' } : {});
+      else closeAccount();
     } catch (ex) { showErr(err, ex.message); }
   });
 });
@@ -5491,8 +5583,7 @@ $('#pwForm').addEventListener('submit', (e) => {
   busy($('button[type=submit]', f), async () => {
     try {
       const r = await api('POST', '/v1/me/password', { password: f.password.value, newPassword: f.newPassword.value });
-      session = { token: r.token, email: r.user.email };
-      store.set('session', session);
+      setSession(r.token, r.user);
       closeAccount();
       toast('Password changed. Other devices will need to sign in again.', 4500);
     } catch (ex) { showErr(err, ex.message); }
@@ -5514,12 +5605,12 @@ $('#delForm').addEventListener('submit', (e) => {
 $('#acctSignOut').onclick = () => {
   const token = session && session.token;
   endSession();
-  closePops();
+  closeAccount();
   toast('Signed out. What’s saved on this device stays here.', 4000);
   if (token) fetch(ACCOUNTS_API + '/v1/auth/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
 };
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && session && Date.now() - lastPull > 60000) { pullSync(); loadTrips(); }
+  if (!document.hidden && session && Date.now() - lastPull > 60000) { pullSync(); loadTrips(); loadFriends(); }
 });
 
 /* ---------------- timetables: every railroad's published schedule, for trips on any date ---------------- */
@@ -5527,9 +5618,21 @@ document.addEventListener('visibilitychange', () => {
    weekly. A train's times count in minutes from "noon minus 12 hours" on its service day, in its route's time zone;
    each station shows them in its own. Dates here are YYYYMMDD strings. */
 let tt = null, ttLoad = null;
+// The app reads the site's copy, which is refreshed weekly, and falls back to the one it shipped with.
+const TT_URLS = SITE_URL ? [new URL('data/timetables.json', SITE_URL).href, 'data/timetables.json'] : ['data/timetables.json'];
+async function fetchTimetables() {
+  let last;
+  for (const url of TT_URLS) {
+    try {
+      const r = await fetch(url, { cache: 'no-cache' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } catch (err) { last = err; }
+  }
+  throw last;
+}
 function loadTimetables() {
-  ttLoad ||= fetch('data/timetables.json', { cache: 'no-cache' })
-    .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  ttLoad ||= fetchTimetables()
     .then((d) => (tt = prepTimetables(d)))
     .catch((err) => { ttLoad = null; throw err; });
   return ttLoad;
@@ -5691,18 +5794,29 @@ function liveLeg(live, p) {
   if (j > live.lastIdx) return leg(live.stops[j], 'Reaches', live.stops[j].arr, live.stops[j].schArr);
   return 'Arrived';
 }
-function tripCard(p) {
+/* friend: a friend's trip, which shows whose it is and can't be removed from here */
+function tripCard(p, friend = false) {
   const live = liveForTrip(p);
   const when = dayWord(p.from.at, p.from.tz);
   const status = live ? `<span class="mt-status">${esc(liveLeg(live, p))}</span>`
     : p.from.at > Date.now() ? '<span class="mt-note">Scheduled. Live times appear once the train is running.</span>'
     : '<span class="mt-note">Not in the live feed.</span>';
   return `<div class="mt-card${live ? ' is-live sig-' + live.sig : ''}">`
-    + `<button type="button" class="mt-main" data-trip="${esc(p.id)}"><span class="mt-when">${esc(when)}</span>`
+    + `<button type="button" class="mt-main" data-${friend ? 'ftrip' : 'trip'}="${esc(p.id)}"><span class="mt-when">${friend ? `<span class="mt-who">@${esc(p.username)}</span> · ` : ''}${esc(when)}</span>`
     + `<b>${esc(p.num)} ${esc(p.route)}${p.provider !== 'Amtrak' ? ` <small>${esc(provName(p.provider))}</small>` : ''}</b>`
     + `<span class="mt-leg">${esc(p.from.name)} ${esc(clockZ(p.from.at, p.from.tz))} → ${esc(p.to.name)} ${esc(clockZ(p.to.at, p.to.tz))}${plusDays(p.from, p.to)}</span>`
     + `${status}</button>`
-    + `<button type="button" class="icon-btn mt-x" data-trip-x="${esc(p.id)}" aria-label="Remove train ${esc(p.num)} on ${esc(when)} from your trips">×</button></div>`;
+    + (friend ? '' : `<button type="button" class="icon-btn mt-x" data-trip-x="${esc(p.id)}" aria-label="Remove train ${esc(p.num)} on ${esc(when)} from your trips">×</button>`) + '</div>';
+}
+const tripDone = (p) => p.to.at + 6 * 3600000 < Date.now();   // arrived (on the timetable) more than six hours ago
+/* Opens a trip's train if it's running, or says when it will be. */
+function showTripTrain(p) {
+  const live = liveForTrip(p);
+  if (live) { openTrain(live.id, { pan: true }); return; }
+  const whose = p.username ? `@${p.username}’s train ${p.num}` : `Train ${p.num}`;
+  toast(p.from.at > Date.now()
+    ? `${whose} is scheduled to leave ${p.from.name} ${dayPhrase(p.from.at, p.from.tz)} at ${clockZ(p.from.at, p.from.tz)}. Live tracking starts once it’s running.`
+    : `${whose} isn’t in the live feed.`, 6000);
 }
 function renderMyTrips() {
   const el = $('#mtList');
@@ -5712,12 +5826,11 @@ function renderMyTrips() {
     el.innerHTML = '<p class="hint">Save the trains you’re taking, today or months ahead, and follow them here once they’re running. <button type="button" class="text-btn" id="mtSignIn">Sign in to save trips</button></p>';
     return;
   }
-  const done = (p) => p.to.at + 6 * 3600000 < Date.now();   // arrived (on the timetable) more than six hours ago
-  const ahead = myTrips.filter((p) => !done(p)), past = myTrips.filter(done).reverse();
+  const ahead = myTrips.filter((p) => !tripDone(p)), past = myTrips.filter(tripDone).reverse();
   $('#mtCount').textContent = ahead.length ? plural(ahead.length, 'trip') : '';
-  el.innerHTML = (ahead.length ? `<div class="mt-list">${ahead.map(tripCard).join('')}</div>`
+  el.innerHTML = (ahead.length ? `<div class="mt-list">${ahead.map((p) => tripCard(p)).join('')}</div>`
     : '<p class="hint">No trips yet. Plan one below, or open a running train and choose Add to trips.</p>')
-    + (past.length ? `<details class="mt-past"><summary>Past trips (${past.length})</summary><div class="mt-list">${past.map(tripCard).join('')}</div></details>` : '');
+    + (past.length ? `<details class="mt-past"><summary>Past trips (${past.length})</summary><div class="mt-list">${past.map((p) => tripCard(p)).join('')}</div></details>` : '');
 }
 $('#mtList').addEventListener('click', async (e) => {
   if (e.target.closest('#mtSignIn')) { openAccount('auth', 'Sign in to save trips. Your saved trains, stations and settings will follow you too.'); return; }
@@ -5729,14 +5842,286 @@ $('#mtList').addEventListener('click', async (e) => {
     return;
   }
   const b = e.target.closest('[data-trip]');
-  if (!b) return;
-  const p = myTrips.find((q) => q.id === b.dataset.trip);
-  const live = p && liveForTrip(p);
-  if (live) openTrain(live.id, { pan: true });
-  else if (p) toast(p.from.at > Date.now()
-    ? `Train ${p.num} is scheduled to leave ${p.from.name} ${dayPhrase(p.from.at, p.from.tz)} at ${clockZ(p.from.at, p.from.tz)}. Live tracking starts once it’s running.`
-    : `Train ${p.num} isn’t in the live feed.`, 6000);
+  const p = b && myTrips.find((q) => q.id === b.dataset.trip);
+  if (p) showTripTrain(p);
 });
+
+/* ---------------- friends: people who see each other's trips ---------------- */
+/* Friends find each other by username, never by email. Asking someone who already asked you makes you friends. */
+const USERNAME_RE = /^[a-z][a-z0-9_]{2,19}$/;
+const USERNAME_RULE = '3 to 20 letters, numbers or underscores, starting with a letter.';
+const normUsername = (n) => String(n || '').trim().replace(/^@/, '').toLowerCase();
+const NO_PEOPLE = { friends: [], incoming: [], outgoing: [] };
+let people = NO_PEOPLE;
+let friendTrips = session ? store.get('friendTripsCache', []) : [];
+
+const PHONE_RULE = 'Enter the phone number with its area code. Outside the US and Canada, start with + and the country code.';
+/* A phone number as E.164 (+15551234567), or null. Ten digits, or eleven starting with 1, are US and Canada numbers;
+   others need + and their country code, or 00 or 011 as dialled from abroad. Extensions are dropped. */
+function normPhone(raw) {
+  const s = String(raw || '').split(/[;,]|\s*(?:x|ext\.?)\s*\d/i)[0].trim();
+  if (!s || /[a-z]/i.test(s)) return null;
+  let d = s.replace(/\D/g, '');
+  if (s.startsWith('+')) { /* already international */ }
+  else if (d.startsWith('011')) d = d.slice(3);
+  else if (d.startsWith('00')) d = d.slice(2);
+  else if (d.length === 10) d = '1' + d;
+  else if (!(d.length === 11 && d[0] === '1')) return null;
+  return /^[1-9]\d{7,14}$/.test(d) ? '+' + d : null;
+}
+const fmtPhone = (e164) => { const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(e164 || ''); return m ? `(${m[1]}) ${m[2]}-${m[3]}` : e164 || ''; };
+/* Numbers are looked up by this hash, so contacts never leave the phone as plain numbers. */
+async function sha256hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function saveProfile(change) {
+  const { user } = await api('PUT', '/v1/me/profile', change);
+  setSession(session.token, user);
+  return user;
+}
+
+/* ---------------- your profile: the username and number friends find you by ---------------- */
+/* Asked for when an account is missing either: after signing up or in, and once per device for an account that was
+   already signed in. Only the username is needed (to have friends at all); the number is optional. */
+const needsProfile = () => !!session && (!session.username || !session.phone);
+let promptThen = null;
+function openProfilePrompt({ lede, then } = {}) {
+  openAccount('profile');
+  promptThen = then || null;
+  $('#promptUserRow').hidden = !!session.username;
+  $('#promptPhoneRow').hidden = !!session.phone;
+  $('#promptLede').textContent = lede || (session.username
+    ? 'Add your phone number so friends who have it in their contacts can find you on Trackside.'
+    : 'Choose a username so friends can add you, and add your number so friends who have it can find you.');
+  store.set('profileAsked', session.email);
+}
+function finishPrompt() {
+  const then = promptThen;
+  promptThen = null;
+  closeAccount();
+  if (then && session && session.username) then();
+}
+$('#promptSkip').onclick = finishPrompt;
+$('#promptForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target, err = $('.acct-err', f), change = {};
+  const name = $('#promptUserRow').hidden ? '' : normUsername(f.username.value);
+  const raw = $('#promptPhoneRow').hidden ? '' : f.phone.value.trim();
+  if (name && !USERNAME_RE.test(name)) { showErr(err, 'Usernames are ' + USERNAME_RULE); return; }
+  if (name) change.username = name;
+  if (raw) {
+    change.phone = normPhone(raw);
+    if (!change.phone) { showErr(err, PHONE_RULE); return; }
+  }
+  if (!name && !raw) { showErr(err, $('#promptUserRow').hidden ? 'Enter your phone number, or choose Skip for now.' : 'Choose a username, or choose Skip for now.'); return; }
+  busy($('button[type=submit]', f), async () => {
+    try {
+      await saveProfile(change);
+      finishPrompt();
+      toast(`Saved. Friends can find you as @${session.username}${session.phone ? ' or by your number' : ''}.`, 4500);
+    } catch (ex) { showErr(err, ex.message); }
+  });
+});
+
+/* The account hub, from the header's Account button */
+function openManage() {
+  openAccount('manage');
+  const f = $('#profileForm');
+  f.username.value = session.username || '';
+  f.phone.value = fmtPhone(session.phone);
+}
+$('#profileForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target, err = $('.acct-err', f), ok = $('.acct-ok', f);
+  const name = normUsername(f.username.value), raw = f.phone.value.trim();
+  showErr(ok, '');
+  if (!USERNAME_RE.test(name)) { showErr(err, 'Usernames are ' + USERNAME_RULE); return; }
+  const phone = raw ? normPhone(raw) : null;
+  if (raw && !phone) { showErr(err, PHONE_RULE); return; }
+  busy($('button[type=submit]', f), async () => {
+    try {
+      await saveProfile({ username: name, phone });
+      showErr(err, '');
+      f.phone.value = fmtPhone(session.phone);
+      showErr(ok, 'Saved.');
+    } catch (ex) { showErr(err, ex.message); }
+  });
+});
+
+/* ---------------- friends: the list, requests, and finding people ---------------- */
+async function loadFriends({ askProfile = false } = {}) {
+  if (!session) return;
+  try {
+    const [me, ppl, ft] = await Promise.all([api('GET', '/v1/me'), api('GET', '/v1/me/friends'), api('GET', '/v1/me/friends/trips')]);
+    if (!session) return;
+    setSession(session.token, me.user);   // picks up a username or number set on another device
+    people = ppl;
+    friendTrips = ft.trips;
+    store.set('friendTripsCache', friendTrips);
+    renderFriendTrips();
+    if (!$('#friends').hidden) renderFriendsDialog();
+    if (topScreen() && topScreen().type === 'train') renderDetail();
+    const quiet = $('#acct').hidden && $('#plan').hidden && $('#friends').hidden;
+    if (askProfile && quiet && needsProfile() && store.get('profileAsked', null) !== session.email) openProfilePrompt();
+  } catch { /* keep showing the cached copy */ }
+}
+function friendsOnHTML(t) {
+  const on = friendTrips.filter((p) => p.provider === t.provider && p.num === plainNum(t.num) && p.date === serviceDateOf(t));
+  return on.length ? `<p class="d-friends">${on.map((p) => `<b>@${esc(p.username)}</b> is on this train, ${esc(p.from.name)} to ${esc(p.to.name)}.`).join('<br>')}</p>` : '';
+}
+function renderFriendTrips() {
+  const el = $('#frList'), n = session ? people.incoming.length : 0;
+  const label = n ? `Friends, ${plural(n, 'request')} waiting` : 'Friends';
+  $('#frSec').hidden = !ACCOUNTS_API;
+  $('#friendsOpen').hidden = !session;
+  for (const [badge, btn] of [['#frBadge', '#friendsOpen'], ['#frBadgeHead', '#friendsBtn']]) {
+    $(badge).hidden = !n;
+    $(badge).textContent = n;
+    $(btn).setAttribute('aria-label', label);
+  }
+  if (!session) {
+    $('#frCount').textContent = '';
+    el.innerHTML = '<p class="hint">See which trains your friends are taking, and follow them live. <button type="button" class="text-btn" id="frSignIn">Sign in to add friends</button></p>';
+    return;
+  }
+  const ahead = friendTrips.filter((p) => !tripDone(p));
+  $('#frCount').textContent = ahead.length ? plural(ahead.length, 'trip') : '';
+  el.innerHTML = ahead.length ? `<div class="mt-list">${ahead.map((p) => tripCard(p, true)).join('')}</div>`
+    : `<p class="hint">${people.friends.length ? 'None of your friends have trips coming up.' : 'Add friends to see the trains they’re taking.'}</p>`;
+}
+$('#frList').addEventListener('click', (e) => {
+  if (e.target.closest('#frSignIn')) { openAccount('auth', 'Sign in to add friends and see their trips.'); return; }
+  const b = e.target.closest('[data-ftrip]');
+  const p = b && friendTrips.find((q) => q.id === b.dataset.ftrip);
+  if (p) showTripTrain(p);
+});
+
+const frAct = (kind, name, label, cls = 'text-btn') => `<button type="button" class="${cls}" data-fr="${kind}" data-name="${esc(name)}" aria-label="${label} @${esc(name)}">${label}</button>`;
+const frRow = (title, sub, acts) => `<div class="fr-row"><span><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span>${acts}</div>`;
+const frGroup = (title, list, f) => (list.length ? `<div class="fr-group"><h3>${title}</h3>${list.map(f).join('')}</div>` : '');
+function renderFriendsDialog() {
+  $('#frMe').textContent = '@' + session.username;
+  const tripsOf = (n) => friendTrips.filter((p) => p.username === n && !tripDone(p)).length;
+  const at = (n) => '@' + esc(n);
+  const html = frGroup(`Requests for you (${people.incoming.length})`, people.incoming, (x) => frRow(at(x.username), 'Wants to share trips with you', frAct('accept', x.username, 'Accept', 'btn primary') + frAct('decline', x.username, 'Decline')))
+    + frGroup(`Your friends (${people.friends.length})`, people.friends, (x) => { const k = tripsOf(x.username); return frRow(at(x.username), k ? plural(k, 'trip') + ' coming up' : '', frAct('remove', x.username, 'Remove')); })
+    + frGroup('Requests you sent', people.outgoing, (x) => frRow(at(x.username), 'Waiting for them to accept', frAct('cancel', x.username, 'Cancel')));
+  $('#frPeople').innerHTML = html || `<p class="hint">No friends yet. Add them by username or phone number${nativeContacts ? ', or find them in your contacts' : ''}. Friends can add you as @${esc(session.username)}.</p>`;
+  renderFound();
+}
+
+/* Contacts, in the iOS and Android apps: who among them is on Trackside. found is null until someone looks. */
+const nativeContacts = nativePlugin('Contacts');
+let found = null;   // [{ name, username }]
+function renderFound() {
+  if (!found) { $('#frFound').innerHTML = ''; return; }
+  const has = (list, n) => list.some((x) => x.username === n);
+  $('#frFound').innerHTML = found.length
+    ? frGroup(`In your contacts (${found.length})`, found, (m) => frRow(esc(m.name || '@' + m.username), m.name ? '@' + esc(m.username) : '',
+      has(people.friends, m.username) ? '<small>Friends</small>' : has(people.outgoing, m.username) ? '<small>Requested</small>'
+        : has(people.incoming, m.username) ? frAct('accept', m.username, 'Accept', 'btn primary') : frAct('add', m.username, 'Add', 'btn primary')))
+    : '<p class="hint">None of your contacts have added their number to Trackside yet. Ask them for their username instead.</p>';
+}
+async function findInContacts() {
+  const f = $('#frAddForm'), err = $('.acct-err', f);
+  showErr(err, '');
+  showErr($('.acct-ok', f), '');
+  const perm = await nativeContacts.requestPermissions().catch(() => ({ contacts: 'denied' }));
+  if (perm.contacts !== 'granted' && perm.contacts !== 'limited') {
+    showErr(err, 'Trackside can’t see your contacts. To find friends there, allow Contacts for Trackside in your phone’s Settings.');
+    return;
+  }
+  try {
+    const { contacts } = await nativeContacts.getContacts({ projection: { name: true, phones: true } });
+    const nameOf = new Map();   // E.164 -> the contact's name
+    for (const c of contacts) {
+      const n = c.name ? c.name.display || [c.name.given, c.name.family].filter(Boolean).join(' ') : '';
+      for (const ph of c.phones || []) {
+        const e164 = normPhone(ph.number);
+        if (e164 && e164 !== session.phone && !nameOf.has(e164)) nameOf.set(e164, n);
+      }
+    }
+    const byHash = new Map(await Promise.all([...nameOf].map(async ([e164, n]) => [await sha256hex(e164), n])));
+    const hashes = [...byHash.keys()], matches = [];
+    for (let i = 0; i < hashes.length; i += 2000) matches.push(...(await api('POST', '/v1/me/friends/match', { phoneHashes: hashes.slice(i, i + 2000) })).matches);
+    const seen = new Map();   // someone in your contacts under two numbers shows once
+    for (const m of matches) if (!seen.has(m.username)) seen.set(m.username, { username: m.username, name: byHash.get(m.phoneHash) });
+    found = [...seen.values()].sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username));
+    renderFound();
+  } catch (ex) { showErr(err, ex.message || 'Couldn’t read your contacts.'); }
+}
+
+let frOpener = null;
+async function openFriends() {
+  if (!session) { openAccount('auth', 'Sign in to add friends and see their trips.'); return; }
+  if (session.username === undefined) {   // a session saved before usernames: ask the account
+    try { setSession(session.token, (await api('GET', '/v1/me')).user); } catch (ex) { toast(ex.message, 5000); return; }
+  }
+  if (!session.username) {
+    openProfilePrompt({ lede: 'Choose a username first, so friends can tell who’s asking. Add your number too, so friends who have it can find you.', then: openFriends });
+    return;
+  }
+  frOpener = document.activeElement;
+  closePops();
+  $('#friends').hidden = false;
+  $$('#friends .acct-err, #friends .acct-ok').forEach((el) => showErr(el, ''));
+  $('#frContacts').hidden = !nativeContacts;
+  renderFriendsDialog();
+  setTimeout(() => (mqMobile.matches ? $('#frTitle') : $('#frAddIn')).focus(), 30);
+  loadFriends();
+}
+function closeFriends() {
+  $('#friends').hidden = true;
+  const back = frOpener && frOpener.isConnected && frOpener.getClientRects().length ? frOpener : $('#friendsBtn');
+  frOpener = null;
+  back.focus();
+}
+$('#friendsBtn').onclick = openFriends;
+$('#friendsOpen').onclick = openFriends;
+$('#friends [data-close]').onclick = closeFriends;
+$('#friends').addEventListener('click', (e) => { if (e.target === $('#friends')) closeFriends(); });
+trapTab($('#friends'));
+$('#frRename').onclick = () => { closeFriends(); openManage(); };
+$('#frContacts').onclick = () => busy($('#frContacts'), findInContacts);
+$('#frAddForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const f = e.target, err = $('.acct-err', f), ok = $('.acct-ok', f), raw = f.who.value.trim();
+  showErr(err, '');
+  showErr(ok, '');
+  const byPhone = /^[+\d\s().-]+$/.test(raw) && raw.replace(/\D/g, '').length >= 7;
+  const phone = byPhone && normPhone(raw), name = byPhone ? '' : normUsername(raw);
+  if (byPhone && !phone) { showErr(err, PHONE_RULE); return; }
+  if (!byPhone && !name) { showErr(err, 'Enter your friend’s username or phone number.'); return; }
+  busy($('button[type=submit]', f), async () => {
+    try {
+      const r = await api('POST', '/v1/me/friends', phone ? { phoneHash: await sha256hex(phone) } : { username: name });
+      f.reset();
+      showErr(ok, r.status === 'accepted' ? `You and @${r.username} are friends. You can see each other’s trips.` : `Request sent to @${r.username}. Once they accept, you’ll see each other’s trips.`);
+      await loadFriends();
+    } catch (ex) { showErr(err, ex.message); }
+  });
+});
+/* Accept, decline, remove, cancel and add, from the lists and from contacts */
+function onFriendAction(e) {
+  const b = e.target.closest('[data-fr]');
+  if (!b) return;
+  const { fr: kind, name } = b.dataset, f = $('#frAddForm');
+  showErr($('.acct-err', f), '');
+  busy(b, async () => {
+    try {
+      let msg = { decline: `Declined @${name}’s request.`, remove: `Removed @${name} from your friends.`, cancel: `Cancelled your request to @${name}.` }[kind];
+      if (kind === 'accept' || kind === 'add') {
+        const r = await api('POST', '/v1/me/friends', { username: name });
+        msg = r.status === 'accepted' ? `You and @${name} are friends now.` : `Request sent to @${name}.`;
+      } else await api('DELETE', '/v1/me/friends/' + encodeURIComponent(name));
+      showErr($('.acct-ok', f), msg);
+      await loadFriends();
+    } catch (ex) { showErr($('.acct-err', f), ex.message); }
+  });
+}
+$('#frPeople').addEventListener('click', onFriendAction);
+$('#frFound').addEventListener('click', onFriendAction);
 
 /* ---------------- the trip planner ---------------- */
 let planRuns = [];   // what the result buttons refer to
@@ -5882,20 +6267,25 @@ $('#plan').addEventListener('click', (e) => { if (e.target === $('#plan') || e.t
 trapTab($('#plan'));
 
 /* ---------------- keys ---------------- */
+/* Closes whatever is on top: a dialog, a popover, the replay, then the screens one by one. False if nothing was open. */
+function closeTopmost(typing = false) {
+  if (!$('#acct').hidden) { closeAccount(); return true; }
+  if (!$('#plan').hidden) { closePlan(); return true; }
+  if (!$('#friends').hidden) { closeFriends(); return true; }
+  if (!$('#settings').hidden || !$('#layers').hidden) { const wasLayers = !$('#layers').hidden; closePops(); $(wasLayers ? '#layersBtn' : '#settingsBtn').focus(); return true; }
+  if (typing) return true;   // otherwise, Escape in a field belongs to the field
+  if (replay.active) { closeReplay(); return true; }
+  if (topScreen()) { goBack(); return true; }
+  return false;
+}
 document.addEventListener('keydown', (e) => {
   const typing = e.target.closest && e.target.closest('input, select, textarea');
-  if (e.key === 'Escape') {
-    if (!$('#acct').hidden) { closeAccount(); return; }
-    if (!$('#plan').hidden) { closePlan(); return; }
-    if (!$('#onboard').hidden) { closeOnboard('skip'); return; }
-    if (!$('#settings').hidden || !$('#layers').hidden) { const wasLayers = !$('#layers').hidden; closePops(); $(wasLayers ? '#layersBtn' : '#settingsBtn').focus(); return; }
-    if (typing) return;
-    if (replay.active) { closeReplay(); return; }
-    if (topScreen()) goBack();
-    return;
-  }
-  if (e.key === '/' && !typing && $('#onboard').hidden && $('#acct').hidden && $('#plan').hidden) { e.preventDefault(); qEl.focus(); qEl.select(); }
+  if (e.key === 'Escape') { closeTopmost(!!typing); return; }
+  if (e.key === '/' && !typing && $('#friends').hidden && $('#acct').hidden && $('#plan').hidden) { e.preventDefault(); qEl.focus(); qEl.select(); }
 });
+/* Android's back button, in the app: back through dialogs and screens, then out of the app, as other apps do. */
+const nativeApp = nativePlugin('App');
+if (nativeApp) nativeApp.addListener('backButton', () => { if (!closeTopmost()) nativeApp.minimizeApp(); });
 
 /* ---------------- deep links ---------------- */
 function resolveHash() {
@@ -6161,13 +6551,17 @@ new ResizeObserver(() => { fitProjection(); if (mqMobile.matches) setSheet(sheet
 showScreen({});
 requestAnimationFrame(tick);
 hist.init().then(() => { if (selectedId) { drawTrail(); renderDetail(); } });
-if (store.get('locate', false) && navigator.permissions && navigator.permissions.query) {
-  navigator.permissions.query({ name: 'geolocation' }).then((st) => { if (st.state === 'granted') startLocate(false); }).catch(() => {});
+// location turns back on by itself only if it's still allowed: in the app the phone's permission, on the web the browser's
+if (store.get('locate', false)) {
+  const allowed = nativeGeo ? nativeGeo.checkPermissions().then((s) => s.location === 'granted' || s.coarseLocation === 'granted')
+    : navigator.permissions && navigator.permissions.query ? navigator.permissions.query({ name: 'geolocation' }).then((st) => st.state === 'granted')
+    : Promise.resolve(false);
+  allowed.then((ok) => { if (ok) startLocate(false); }).catch(() => {});
 }
-if (!store.get('onboarded', false) && !pendingHash && !resetToken) showOnboard();
 booting = false;
 renderAccount();
-if (session) { pullSync(); loadTrips(); }
+if (ACCOUNTS_API && !session && !store.get('welcomed', false) && !pendingHash && !resetToken) openWelcome();
+if (session) { pullSync(); loadTrips(); loadFriends({ askProfile: true }); }
 if (resetToken) openAccount('reset');
 refresh();
 })();

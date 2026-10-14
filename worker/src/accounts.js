@@ -1,7 +1,7 @@
 /* Trackside accounts: sign up with an email and password, then sync saved trains, stations and settings
    between devices. Storage goes through ./store, so this file never knows which database is behind it.
 
-   POST   /v1/auth/signup     { email, password }            -> 201 { token, user }
+   POST   /v1/auth/signup     { email, password, username? } -> 201 { token, user }
    POST   /v1/auth/login      { email, password }            -> { token, user }
    POST   /v1/auth/logout                                     -> 204
    POST   /v1/auth/reset      { email }                      -> 202              (emails a reset link if there's an account)
@@ -14,6 +14,17 @@
    GET    /v1/me/trips                                        -> { trips }        (soonest first)
    POST   /v1/me/trips        { provider, num, date, route, from, to }  -> 201 { trip }
    DELETE /v1/me/trips/:id                                    -> 204
+   PUT    /v1/me/profile      { username?, phone? }          -> { user }         (phone: E.164, or null to remove it)
+   GET    /v1/me/friends                                      -> { friends, incoming, outgoing }   ([{ username, at }])
+   POST   /v1/me/friends      { username } or { phoneHash }  -> { status, username }   ('pending', or 'accepted' when they'd asked you)
+   POST   /v1/me/friends/match  { phoneHashes }              -> { matches }      (who from a phone's contacts is on Trackside)
+   DELETE /v1/me/friends/:username                            -> 204              (unfriends, cancels or declines)
+   GET    /v1/me/friends/trips                                -> { trips }        (friends' trips not long over, soonest first)
+
+   A user is { id, email, username, phone, createdAt }; username and phone are null until chosen, and friends need a
+   username to find each other. Friends see each other's trips and usernames, never emails or phone numbers.
+   Numbers are looked up by phoneHash: the lowercase hex SHA-256 of the E.164 number (+15551234567), so a phone's
+   contacts never leave it as plain numbers. Matches are answered and forgotten; nothing uploaded is stored.
 
    A trip is one train on one day: provider and num as the live feeds name them, date the YYYY-MM-DD it starts its
    run, and from/to { code, name, at, tz }: where the person boards and leaves, with scheduled times in ms.
@@ -39,10 +50,19 @@ const LIMITS = {
   signupIp: [10, 3600000],        // new accounts per address per hour
   resetEmail: [3, 3600000],       // reset emails per account per hour
   resetIp: [10, 3600000],         // reset requests per address per hour
+  friendRequest: [30, 3600000],   // new friend requests per account per hour
+  phoneLookup: [30, 3600000],     // lookups by number per account per hour: slows working out who has which number
 };
 const RESET_MS = 30 * 60000;
 const PROVIDERS = ['Amtrak', 'Via', 'Brightline', ...FEED_PROVIDERS];   // Amtraker's, then the feeds worker's
 const TRIPS_MAX = 200;
+const USERNAME = /^[a-z][a-z0-9_]{2,19}$/;
+const FRIENDS_MAX = 200;   // friends and requests, together
+const FRIEND_TRIPS_BACK = 4 * 86400000;   // the longest runs take about three days; older trips are surely over
+const TRIP_DONE_MS = 6 * 3600000;         // a trip counts as over this long after its scheduled arrival, as on the site
+const PHONE = /^\+[1-9]\d{7,14}$/;          // E.164
+const HASH = /^[0-9a-f]{64}$/;
+const MATCH_MAX = 2000;                     // numbers per contacts lookup; the app sends a big address book in parts
 
 /* ---------------- passwords and tokens ---------------- */
 const enc = new TextEncoder();
@@ -87,12 +107,22 @@ function checkPassword(pw) {
   if (typeof pw !== 'string' || pw.length < PASSWORD_MIN) throw new ApiError(400, 'weak_password', `Use a password of at least ${PASSWORD_MIN} characters.`);
   if (pw.length > PASSWORD_MAX) throw new ApiError(400, 'long_password', `Use a password of at most ${PASSWORD_MAX} characters.`);
 }
-async function body(req) {
+async function body(req, max = BODY_MAX) {
   const text = await req.text();
-  if (text.length > BODY_MAX) throw new ApiError(413, 'too_large', 'That request is too large.');
+  if (text.length > max) throw new ApiError(413, 'too_large', 'That request is too large.');
   try { return text ? JSON.parse(text) : {}; } catch { throw new ApiError(400, 'bad_json', 'The request body must be JSON.'); }
 }
-const publicUser = (u) => ({ id: u.id, email: u.email, createdAt: u.createdAt });
+const publicUser = (u) => ({ id: u.id, email: u.email, username: u.username || null, phone: u.phone || null, createdAt: u.createdAt });
+const phoneHash = async (phone) => hex(await crypto.subtle.digest('SHA-256', enc.encode(phone)));
+const normUsername = (n) => String(n || '').trim().replace(/^@/, '').toLowerCase();
+function checkUsername(name) {
+  if (!USERNAME.test(name)) throw new ApiError(400, 'bad_username', 'Usernames are 3 to 20 letters, numbers or underscores, starting with a letter.');
+}
+const usernameTaken = () => new ApiError(409, 'username_taken', 'That username is taken. Try another.');
+const TAKEN = {
+  username_taken: usernameTaken,
+  phone_taken: () => new ApiError(409, 'phone_taken', 'That number is already on another Trackside account.'),
+};
 
 async function limit(store, bucket, [max, windowMs], now) {
   if (await store.countAttempts(bucket, now - windowMs) >= max) {
@@ -180,12 +210,16 @@ export async function handleAccounts(req, env, ctx, url) {
       const b = await body(req);
       const email = normEmail(b.email);
       checkEmail(email);
+      // optional, so older copies of the app can still sign people up; they choose one later
+      const username = b.username == null || b.username === '' ? null : normUsername(b.username);
+      if (username) checkUsername(username);
       checkPassword(b.password);
       await limit(store, 'signup-ip:' + ip, LIMITS.signupIp, now);
       await store.addAttempt('signup-ip:' + ip, now);
-      const user = { id: crypto.randomUUID(), email, passwordHash: await hashPassword(b.password, iterationsFor(env)), createdAt: now };
+      const user = { id: crypto.randomUUID(), email, username, passwordHash: await hashPassword(b.password, iterationsFor(env)), createdAt: now };
       try { await store.createUser(user); } catch (err) {
         if (err instanceof StoreError && err.code === 'email_taken') throw new ApiError(409, 'email_taken', 'There’s already an account with that email. Sign in instead.');
+        if (err instanceof StoreError && err.code === 'username_taken') throw usernameTaken();
         throw err;
       }
       housekeeping(store, ctx, now);
@@ -299,6 +333,97 @@ export async function handleAccounts(req, env, ctx, url) {
     if (del) {
       const { user } = await signedIn(req, store, now);
       if (!(await store.deleteTrip(user.id, del[1]))) throw new ApiError(404, 'not_found', 'That trip isn’t in your account.');
+      return new Response(null, { status: 204, headers: corsHeaders(req, env) });
+    }
+    if (route === 'PUT /v1/me/profile') {
+      const { user } = await signedIn(req, store, now);
+      const b = await body(req);
+      const change = {};
+      if (b.username !== undefined) {
+        change.username = normUsername(b.username);
+        checkUsername(change.username);
+      }
+      if (b.phone === null || b.phone === '') change.phone = null;
+      else if (b.phone !== undefined) {
+        const number = String(b.phone).trim();
+        if (!PHONE.test(number)) throw new ApiError(400, 'bad_phone', 'Enter the phone number with its country code, like +1 555 123 4567.');
+        change.phone = { number, hash: await phoneHash(number) };
+      }
+      try { await store.setProfile(user.id, change); } catch (err) {
+        if (err instanceof StoreError && TAKEN[err.code]) throw TAKEN[err.code]();
+        throw err;
+      }
+      return json({ user: publicUser(await store.getUserById(user.id)) }, req, env, noStore);
+    }
+    if (route === 'GET /v1/me/friends') {
+      const { user } = await signedIn(req, store, now);
+      const out = { friends: [], incoming: [], outgoing: [] };
+      for (const f of await store.listFriendships(user.id)) {
+        if (f.status === 'accepted') out.friends.push({ username: f.otherUsername, at: f.acceptedAt });
+        else (f.requesterId === user.id ? out.outgoing : out.incoming).push({ username: f.otherUsername, at: f.createdAt });
+      }
+      out.friends.sort((a, b) => a.username.localeCompare(b.username));
+      return json(out, req, env, noStore);
+    }
+    if (route === 'POST /v1/me/friends') {
+      const { user } = await signedIn(req, store, now);
+      if (!user.username) throw new ApiError(409, 'no_username', 'Choose a username first, so your friends can tell who’s asking.');
+      const b = await body(req);
+      let them;
+      if (b.phoneHash !== undefined) {
+        if (typeof b.phoneHash !== 'string' || !HASH.test(b.phoneHash)) throw new ApiError(400, 'bad_phone', 'That phone number doesn’t look right.');
+        await limit(store, 'phone-lookup:' + user.id, LIMITS.phoneLookup, now);
+        await store.addAttempt('phone-lookup:' + user.id, now);
+        [them] = await store.findByPhoneHashes([b.phoneHash]);
+        if (!them) throw new ApiError(404, 'no_such_user', 'No one on Trackside has added that number yet. Try their username.');
+      } else {
+        const name = normUsername(b.username);
+        them = USERNAME.test(name) ? await store.getUserByUsername(name) : null;
+        if (!them) throw new ApiError(404, 'no_such_user', `No one on Trackside has the username @${name.slice(0, 20)}.`);
+      }
+      if (them.id === user.id) throw new ApiError(400, 'self', 'That’s you.');
+      const answer = (status, code = 200) => json({ status, username: them.username }, req, env, noStore, code);
+      const f = await store.getFriendship(user.id, them.id);
+      if (f && f.status === 'accepted') return answer('accepted');
+      if (f && f.requesterId === them.id) {   // they asked first: this accepts
+        await store.acceptFriendRequest(them.id, user.id, now);
+        return answer('accepted');
+      }
+      if (f) return answer('pending');
+      if ((await store.listFriendships(user.id)).length >= FRIENDS_MAX) throw new ApiError(409, 'too_many', `You can have up to ${FRIENDS_MAX} friends and requests.`);
+      await limit(store, 'friend-req:' + user.id, LIMITS.friendRequest, now);
+      await store.addAttempt('friend-req:' + user.id, now);
+      try { await store.addFriendRequest({ requesterId: user.id, addresseeId: them.id, createdAt: now }); } catch (err) {
+        if (!(err instanceof StoreError && err.code === 'friendship_exists')) throw err;
+      }
+      return answer('pending', 201);
+    }
+    if (route === 'POST /v1/me/friends/match') {
+      const { user } = await signedIn(req, store, now);
+      const hashes = (await body(req, MATCH_MAX * 70 + 1024)).phoneHashes;
+      if (!Array.isArray(hashes) || hashes.length > MATCH_MAX || !hashes.every((h) => typeof h === 'string' && HASH.test(h))) {
+        throw new ApiError(400, 'bad_request', `Send up to ${MATCH_MAX} phone hashes at a time.`);
+      }
+      await limit(store, 'phone-lookup:' + user.id, LIMITS.phoneLookup, now);
+      await store.addAttempt('phone-lookup:' + user.id, now);
+      const found = (await store.findByPhoneHashes([...new Set(hashes)])).filter((m) => m.id !== user.id);
+      const rel = new Map((await store.listFriendships(user.id)).map((f) => [f.otherId,
+        f.status === 'accepted' ? 'friends' : f.requesterId === user.id ? 'requested' : 'incoming']));
+      return json({ matches: found.map((m) => ({ phoneHash: m.phoneHash, username: m.username, status: rel.get(m.id) || null })) }, req, env, noStore);
+    }
+    if (route === 'GET /v1/me/friends/trips') {
+      const { user } = await signedIn(req, store, now);
+      const trips = (await store.listFriendTrips(user.id, now - FRIEND_TRIPS_BACK))
+        .filter((t) => t.data.to.at + TRIP_DONE_MS > now)
+        .slice(0, TRIPS_MAX)
+        .map((t) => ({ ...publicTrip(t), username: t.username }));
+      return json({ trips }, req, env, noStore);
+    }
+    const unfriend = req.method === 'DELETE' && /^\/v1\/me\/friends\/@?([A-Za-z0-9_]{1,20})$/.exec(url.pathname);
+    if (unfriend) {
+      const { user } = await signedIn(req, store, now);
+      const them = await store.getUserByUsername(unfriend[1].toLowerCase());
+      if (!them || !(await store.deleteFriendship(user.id, them.id))) throw new ApiError(404, 'not_found', `You and @${unfriend[1]} aren’t friends.`);
       return new Response(null, { status: 204, headers: corsHeaders(req, env) });
     }
     return json({ error: { code: 'not_found', message: 'Not found.' } }, req, env, noStore, 404);

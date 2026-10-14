@@ -40,7 +40,7 @@ test('turso: a failing statement rolls back the whole batch', async () => {
 });
 
 for (const [name, make] of Object.entries(ADAPTERS)) {
-  const user = (n = 1) => ({ id: 'u' + n, email: `p${n}@example.com`, passwordHash: 'hash' + n, createdAt: 1000 + n });
+  const user = (n = 1) => ({ id: 'u' + n, email: `p${n}@example.com`, username: null, phone: null, passwordHash: 'hash' + n, createdAt: 1000 + n });
 
   test(`${name}: users`, async () => {
     const s = make();
@@ -52,6 +52,89 @@ for (const [name, make] of Object.entries(ADAPTERS)) {
     await assert.rejects(s.createUser({ ...user(2), email: 'p1@example.com' }), (e) => e instanceof StoreError && e.code === 'email_taken');
     await s.setPasswordHash('u1', 'newhash');
     assert.equal((await s.getUserById('u1')).passwordHash, 'newhash');
+  });
+
+  test(`${name}: usernames`, async () => {
+    const s = make();
+    await s.createUser({ ...user(1), username: 'zephyr_fan' });
+    await s.createUser(user(2));
+    assert.equal((await s.getUserById('u1')).username, 'zephyr_fan');
+    assert.equal((await s.getUserByEmail('p1@example.com')).username, 'zephyr_fan');
+    assert.deepEqual(await s.getUserByUsername('zephyr_fan'), { ...user(1), username: 'zephyr_fan' });
+    assert.equal(await s.getUserByUsername('nobody'), null);
+    await assert.rejects(s.createUser({ ...user(3), username: 'zephyr_fan' }), (e) => e instanceof StoreError && e.code === 'username_taken');
+    assert.equal(await s.getUserById('u3'), null);   // nothing half-made
+    await assert.rejects(s.setProfile('u2', { username: 'zephyr_fan' }), (e) => e instanceof StoreError && e.code === 'username_taken');
+    await s.setProfile('u2', { username: 'coast_starlight' });
+    await s.setProfile('u1', { username: 'zephyr_fan' });   // keeping your own is fine
+    await s.setProfile('u1', { username: 'cardinal' });
+    assert.equal(await s.getUserByUsername('zephyr_fan'), null);
+    assert.equal((await s.getUserByUsername('coast_starlight')).id, 'u2');
+    await s.deleteUser('u1');
+    await s.createUser({ ...user(4), username: 'cardinal' });   // the name is free again
+  });
+
+  test(`${name}: phone numbers`, async () => {
+    const s = make();
+    await s.createUser({ ...user(1), username: 'ann' });
+    await s.createUser({ ...user(2), username: 'ben' });
+    await s.createUser(user(3));   // no username: can't be found
+    const num = (n) => ({ number: '+1555000000' + n, hash: 'h' + n });
+    await s.setProfile('u1', { phone: num(1) });
+    await s.setProfile('u3', { phone: num(3) });
+    assert.equal((await s.getUserById('u1')).phone, '+15550000001');
+    assert.equal((await s.getUserByUsername('ann')).username, 'ann');   // a phone change leaves the username alone
+    await assert.rejects(s.setProfile('u2', { username: 'bennett', phone: num(1) }), (e) => e instanceof StoreError && e.code === 'phone_taken');
+    assert.equal((await s.getUserById('u2')).username, 'ben');   // all or nothing
+    await assert.rejects(s.setProfile('u2', { username: 'ann', phone: num(2) }), (e) => e instanceof StoreError && e.code === 'username_taken');
+    assert.equal((await s.getUserById('u2')).phone, null);
+    await s.setProfile('u2', { username: 'bennett', phone: num(2) });
+    assert.deepEqual(await s.getUserById('u2'), { ...user(2), username: 'bennett', phone: '+15550000002' });
+    const found = await s.findByPhoneHashes(['h1', 'h2', 'h3', 'nope']);
+    assert.deepEqual(found.sort((a, b) => a.id.localeCompare(b.id)), [{ id: 'u1', username: 'ann', phoneHash: 'h1' }, { id: 'u2', username: 'bennett', phoneHash: 'h2' }]);
+    assert.deepEqual(await s.findByPhoneHashes([]), []);
+    await s.setProfile('u1', { phone: null });
+    assert.equal((await s.getUserById('u1')).phone, null);
+    assert.deepEqual(await s.findByPhoneHashes(['h1']), []);
+    await s.setProfile('u3', { phone: num(1) });   // a removed number is free again
+    await s.deleteUser('u2');
+    await s.createUser({ ...user(4), username: 'dee' });
+    await s.setProfile('u4', { phone: num(2) });   // and so is a deleted account's
+  });
+
+  test(`${name}: friendships`, async () => {
+    const s = make();
+    for (const [n, u] of [[1, 'ann'], [2, 'ben'], [3, 'cat']]) await s.createUser({ ...user(n), username: u });
+    await s.addFriendRequest({ requesterId: 'u1', addresseeId: 'u2', createdAt: 10 });
+    await s.addFriendRequest({ requesterId: 'u3', addresseeId: 'u1', createdAt: 20 });
+    await assert.rejects(s.addFriendRequest({ requesterId: 'u1', addresseeId: 'u2', createdAt: 30 }), (e) => e instanceof StoreError && e.code === 'friendship_exists');
+    assert.deepEqual(await s.getFriendship('u2', 'u1'), { requesterId: 'u1', addresseeId: 'u2', status: 'pending', createdAt: 10, acceptedAt: null });
+    assert.equal(await s.getFriendship('u2', 'u3'), null);
+    assert.equal(await s.acceptFriendRequest('u2', 'u1', 40), false);   // only the one asked can accept
+    assert.equal(await s.acceptFriendRequest('u1', 'u2', 40), true);
+    assert.equal(await s.acceptFriendRequest('u1', 'u2', 50), false);   // already accepted
+    const list = await s.listFriendships('u1');
+    assert.deepEqual(list.map((f) => [f.otherId, f.otherUsername, f.status]), [['u2', 'ben', 'accepted'], ['u3', 'cat', 'pending']]);
+    assert.equal(list[0].acceptedAt, 40);
+    assert.deepEqual((await s.listFriendships('u2')).map((f) => f.otherUsername), ['ann']);
+
+    const trip = (id, userId, departAt) => ({ id, userId, provider: 'Amtrak', num: id, date: '2026-10-20', departAt, data: { route: 'R', from: { code: 'CHI' }, to: { code: 'DEN', at: departAt + 1 } }, createdAt: 1 });
+    await s.addTrip(trip('5', 'u2', 2000));
+    await s.addTrip(trip('7', 'u2', 1000));
+    await s.addTrip(trip('9', 'u2', 100));    // too long ago
+    await s.addTrip(trip('3', 'u3', 1500));   // a request, not a friend yet
+    await s.addTrip(trip('1', 'u1', 1500));   // your own
+    const seen = await s.listFriendTrips('u1', 500);
+    assert.deepEqual(seen.map((t) => [t.num, t.username]), [['7', 'ben'], ['5', 'ben']]);
+    assert.deepEqual(seen[0].data.to, { code: 'DEN', at: 1001 });
+    assert.deepEqual((await s.listFriendTrips('u2', 0)).map((t) => t.num), ['1']);   // it works both ways
+    assert.deepEqual(await s.listFriendTrips('u3', 0), []);
+
+    assert.equal(await s.deleteFriendship('u2', 'u1'), true);   // either side can end it
+    assert.equal(await s.deleteFriendship('u1', 'u2'), false);
+    assert.deepEqual(await s.listFriendTrips('u1', 0), []);
+    await s.deleteUser('u3');
+    assert.deepEqual(await s.listFriendships('u1'), []);
   });
 
   test(`${name}: sessions`, async () => {

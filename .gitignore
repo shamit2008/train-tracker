@@ -11,6 +11,9 @@
 # Local accounts database used by `npm run dev` in worker/
 .accounts-dev.sqlite*
 
+# The app's web content, built from index.html and data/ by app/build.mjs
+app/www/
+
 # macOS / editor clutter
 .DS_Store
 node_modules/
