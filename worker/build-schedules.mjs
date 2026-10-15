@@ -4,6 +4,7 @@
 // The live feeds only carry trip and stop IDs, so the worker uses this to name and time them.
 //
 //   node build-schedules.mjs        (or: npm run schedules; then redeploy)
+//   node build-schedules.mjs NJ     only the railroads named (by id), keeping the others' schedules as they are
 //
 // Rerun after a railroad publishes a new timetable. A download that needs a key (Caltrain's, from 511) reads it
 // from ../.env or the environment. If a railroad fails, its previous schedule is kept. The output holds public
@@ -88,15 +89,26 @@ try { previous = JSON.parse(await readFile(OUT, 'utf8')); } catch { /* first run
 
 const out = { built: new Date().toISOString().slice(0, 10) };
 let failures = 0;
+const only = process.argv.slice(2);
 for (const a of AGENCIES) {
+  if (only.length && !only.includes(a.id)) { if (previous[a.id]) out[a.id] = previous[a.id]; continue; }
   try {
-    let url = a.gtfs.url;
-    if (typeof url === 'function') {
-      const key = await envKey(a.key, dir);
-      if (!key) throw new Error(`no ${a.key} in ../.env or the environment`);
-      url = url(key);
+    let zip;
+    if (a.gtfs.download) {
+      const keys = [].concat(a.key || []);
+      const creds = Object.fromEntries(await Promise.all([...keys, 'NJT_HOST'].map(async (k) => [k, await envKey(k, dir)])));
+      if (keys.some((k) => !creds[k])) throw new Error(`no ${keys.join(' and ')} in ../.env or the environment`);
+      zip = await a.gtfs.download(creds);
+    } else {
+      let url = a.gtfs.url;
+      if (typeof url === 'function') {
+        const key = await envKey(a.key, dir);
+        if (!key) throw new Error(`no ${a.key} in ../.env or the environment`);
+        url = url(key);
+      }
+      zip = await downloadFirst(url);
     }
-    const g = await readGtfs(await downloadFirst(url), { inner: a.gtfs.inner, keep: onlyRoutes(a.gtfs.keepRoute || isRail) });
+    const g = await readGtfs(zip, { inner: a.gtfs.inner, keep: onlyRoutes(a.gtfs.keepRoute || isRail) });
     const s = compact(g, a);
     if (!s.runs.length) throw new Error('no trains in the timetable');
     out[a.id] = s;

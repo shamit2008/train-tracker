@@ -31,10 +31,10 @@ and a deploy.
 | FrontRunner | UTA | none | Shared feed with buses and TRAX. No train numbers: trains are named FR + departure time (FR0657) |
 | RTD commuter rail | RTD | none | Shared feed with buses. No train numbers: line + departure time (A1415) |
 | Metra | Metra | `METRA_API_KEY` | Free key from metra.com/developers; left out without it |
+| NJ Transit rail | NJ Transit | `NJT_USERNAME`, `NJT_PASSWORD` | Developer account from developer.njtransit.com. The feeds need a token from a sign-in, kept in D1 (`feed_tokens`), since the sign-in is limited to 10 a day. Test host by default: set `NJT_HOST` to `https://raildata.njtransit.com` with production credentials |
 
-Not added: NJ Transit (its feed needs an account and a token exchange, and its timetable needs the same), the
-511 regional feed for ACE and SMART (it would share Caltrain's 60-an-hour quota), and subway and metro systems,
-which report stop-to-stop progress rather than positions and need their own map treatment.
+Not added: the 511 regional feed for ACE and SMART (it would share Caltrain's 60-an-hour quota), and subway and metro
+systems, which report stop-to-stop progress rather than positions and need their own map treatment.
 
 Before going public with Metrolink positions, note that Metrolink's license describes internal business use and
 asks each app user to have their own key; ask Metrolink for written permission first. The other feeds are

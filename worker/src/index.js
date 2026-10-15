@@ -68,9 +68,13 @@ function sharedPut(name, body, ctx, budget) {
 async function fetchFeed(name, url, auth, env, budget) {
   if (!spend(budget)) throw new Error(`${name}: over this request's limit, retrying on the next one`);
   const a = auth ? auth(env, url) : {};
-  const res = await fetch(a.url || url, { headers: a.headers || {}, cf: { cacheTtl: 0 }, signal: AbortSignal.timeout(FETCH_TIMEOUT) });
-  if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
-  const bytes = new Uint8Array(await res.arrayBuffer());
+  let bytes;
+  if (a.load) bytes = await a.load(AbortSignal.timeout(FETCH_TIMEOUT));   // for feeds that need a token or a POST
+  else {
+    const res = await fetch(a.url || url, { headers: a.headers || {}, cf: { cacheTtl: 0 }, signal: AbortSignal.timeout(FETCH_TIMEOUT) });
+    if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
+    bytes = new Uint8Array(await res.arrayBuffer());
+  }
   decodeFeed(bytes, () => false);   // don't cache something that isn't a feed (an HTML error page, say)
   return bytes;
 }
@@ -98,7 +102,8 @@ async function feed(name, { url, fresh }, auth, env, budget) {
 async function railroad(a, env, ctx, now, mayRebuild, budget) {
   const sched = SCHEDULES[a.id];
   if (!sched) return { trains: [], status: 'no timetable (run npm run schedules)' };
-  if (a.key && !env[a.key]) return { trains: [], status: 'no key configured' };
+  const keys = [].concat(a.key || []);
+  if (keys.some((k) => !env[k])) return { trains: [], status: 'no key configured' };
   const sources = [['vehicles', a.vehicles], ['trips', a.trips]].filter(([, f]) => f);
   const fresh = Math.min(...sources.map(([, f]) => f.fresh));
   const built = await sharedGet('built ' + a.id, budget);

@@ -15,9 +15,9 @@ import path from 'node:path';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const KEYS = ['METROLINK_API_KEY', 'CALTRAIN_511_KEY'];
-// stored when ../.env has them: Metra's key (Metra is left out without it), the email service for password reset,
+// stored when ../.env has them: Metra's key (Metra is left out without it), NJ Transit's sign-in, the email service for password reset,
 // and Turso if accounts move there
-const OPTIONAL = ['METRA_API_KEY', 'RESEND_API_KEY', 'BREVO_API_KEY', 'TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN'];
+const OPTIONAL = ['METRA_API_KEY', 'NJT_USERNAME', 'NJT_PASSWORD', 'RESEND_API_KEY', 'BREVO_API_KEY', 'TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN'];
 
 const env = {};
 try {

@@ -22,6 +22,7 @@
      num(t, run)       the public train number (default: trip_short_name, else trip_id). run is { route, dep }: the
                        trip's routes.txt row and its first departure, in seconds after the service day's start
    Platforms are folded into their parent station, so trains are shown at the station. */
+import { njtFeed, njtGtfs } from './njt.js';
 
 const route = (r) => (r.route_long_name || r.route_short_name || r.route_id).trim();
 const line = (r) => { const n = route(r); return /\b(line|branch|service|corridor)\b/i.test(n) ? n : n + ' Line'; };
@@ -151,6 +152,20 @@ export const AGENCIES = [
     },
   },
   {
+    // Feeds are POSTs that take a token, which the username and password buy (see njt.js); the schedule is fetched
+    // the same way by build-schedules.mjs. The realtime feeds are unlimited; the token sign-in is capped at 10 a day.
+    id: 'NJ', provider: 'NJ Transit', state: 'NJ',
+    key: ['NJT_USERNAME', 'NJT_PASSWORD'],
+    auth: (env, endpoint) => ({ load: (signal) => njtFeed(env, endpoint, signal) }),
+    vehicles: { url: 'getVehiclePositions', fresh: 30 },
+    trips: { url: 'getTripUpdates', fresh: 30 },
+    gtfs: {
+      download: njtGtfs,
+      keepRoute: () => true,   // every route in the feed is rail; its route_type is 113 (railway service), not 2
+      num: (t) => (t.trip_short_name || t.trip_id).replace(/^0+/, ''),   // 0057 -> 57
+    },
+  },
+  {
     id: 'ME', provider: 'Metra', state: 'IL',
     key: 'METRA_API_KEY',
     auth: (env, url) => ({ url: url + '?api_token=' + encodeURIComponent(env.METRA_API_KEY) }),
@@ -165,4 +180,4 @@ export const AGENCIES = [
 ];
 
 export const PROVIDERS = AGENCIES.map((a) => a.provider);
-export const SECRET_KEYS = [...new Set(AGENCIES.map((a) => a.key).filter(Boolean))];
+export const SECRET_KEYS = [...new Set(AGENCIES.flatMap((a) => [].concat(a.key || [])))];

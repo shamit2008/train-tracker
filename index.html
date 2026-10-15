@@ -1071,7 +1071,7 @@ button:disabled { cursor: default; opacity: .5; }
         </a>
         <div class="head-actions">
           <button class="icon-btn head-btn" id="friendsBtn" type="button" title="Friends" aria-label="Friends" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.2" r="2.4"/><path d="M1.6 13.6c.5-2.6 2.2-4 4.4-4s3.9 1.4 4.4 4"/><path d="M10.4 2.9a2.4 2.4 0 0 1 0 4.6M12 9.8c1.3.5 2.1 1.8 2.4 3.8"/></svg><span class="head-badge" id="frBadgeHead" hidden></span></button>
-          <button class="icon-btn head-btn" id="acctBtn" type="button" title="Sign in or create an account" aria-label="Sign in or create an account" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="5.4" r="2.8"/><path d="M2.6 14.2c.6-3 2.7-4.6 5.4-4.6s4.8 1.6 5.4 4.6"/></svg><span class="avatar" id="acctAvatar" aria-hidden="true" hidden></span></button>
+          <button class="icon-btn head-btn" id="acctBtn" type="button" title="Sign in" aria-label="Sign in" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="5.4" r="2.8"/><path d="M2.6 14.2c.6-3 2.7-4.6 5.4-4.6s4.8 1.6 5.4 4.6"/></svg><span class="avatar" id="acctAvatar" aria-hidden="true" hidden></span></button>
           <button class="icon-btn" id="refresh" type="button" title="Refresh now" aria-label="Refresh now">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg>
           </button>
@@ -1108,6 +1108,7 @@ button:disabled { cursor: default; opacity: .5; }
           <label><input type="radio" name="density" value="detailed"><span>Detailed</span></label>
           <label><input type="radio" name="density" value="compact"><span>Compact</span></label>
         </div></fieldset>
+        <label class="check"><input type="checkbox" id="simplifyToggle"> Simplify display</label>
       </div>
     </div>
 
@@ -1132,7 +1133,7 @@ button:disabled { cursor: default; opacity: .5; }
           <div class="sum-body">
             <div class="bar" id="bar" aria-hidden="true"></div>
             <div class="keys" id="keys" role="group" aria-label="Filter by delay"></div>
-            <small>Delay at each train's next stop. On time means up to 5 minutes late.</small>
+            <small>Delay at next stop. On time is within 5 min.</small>
           </div>
         </details>
         <div class="listbar" id="listbar">
@@ -1156,11 +1157,11 @@ button:disabled { cursor: default; opacity: .5; }
             </label>
           </div>
         </div>
-        <div class="list" id="list"><div class="empty"><strong>Loading trains</strong>Fetching positions from the Amtraker API.</div></div>
+        <div class="list" id="list"><div class="empty"><strong>Loading trains</strong>Fetching positions.</div></div>
       </section>
 
       <section id="view-track" role="tabpanel" aria-labelledby="tab-track" hidden>
-        <p class="intro">Know which train you're on? <b>Search by number, route or station above</b>, or start from your saved trains, your journey or your location.</p>
+        <p class="intro"><b>Search by number, route or station</b>, or start from your trains or location.</p>
         <div class="sec" id="mtSec">
           <h3>Your trips <small id="mtCount"></small></h3>
           <div id="mtList"></div>
@@ -1181,7 +1182,7 @@ button:disabled { cursor: default; opacity: .5; }
         </div>
         <div class="sec">
           <h3>Find trains between stations</h3>
-          <p>Pick where you're starting and where you're going.</p>
+          <p>Pick a start and an end.</p>
           <form class="trip" id="tripForm" autocomplete="off">
             <div class="fields">
               <div class="field"><label for="fromSt">From</label><input id="fromSt" placeholder="Station name, city or code" role="combobox" aria-expanded="false" aria-controls="fromSugg" aria-autocomplete="list"><div class="sugg" id="fromSugg" role="listbox" aria-label="From station suggestions" hidden></div></div>
@@ -1209,7 +1210,7 @@ button:disabled { cursor: default; opacity: .5; }
         </div>
         <div class="sec">
           <h3>All stations <small id="stCount"></small></h3>
-          <p class="hint" id="stHint">Stations served by trains in today's live feed. Type above to narrow the list.</p>
+          <p class="hint" id="stHint">Stations in today’s live feed. Type to narrow.</p>
           <div class="list" id="allStations"></div>
         </div>
       </section>
@@ -1219,7 +1220,7 @@ button:disabled { cursor: default; opacity: .5; }
     </div>
 
     <div class="foot" id="foot">
-      Unofficial. Positions come from the <a href="https://amtraker.com" target="_blank" rel="noopener">Amtraker API</a>, which decodes Amtrak's Track Your Train map, and update about once a minute. Commuter rail positions from each railroad's public GTFS-Realtime feed: <a href="https://metrolinktrains.com/about/gtfs/" target="_blank" rel="noopener">Metrolink</a>, Caltrain via <a href="https://511.org/open-data" target="_blank" rel="noopener">511.org</a>, LIRR and Metro-North via <a href="https://www.mta.info/developers" target="_blank" rel="noopener">MTA</a>, <a href="https://www3.septa.org/" target="_blank" rel="noopener">SEPTA</a>, <a href="https://www.mbta.com/developers" target="_blank" rel="noopener">MBTA</a>, MARC, VRE, Tri-Rail, South Shore Line, <a href="https://developer.rideuta.com/" target="_blank" rel="noopener">UTA</a> FrontRunner, <a href="https://www.rtd-denver.com/open-records/open-spatial-information/real-time-feeds" target="_blank" rel="noopener">RTD</a> and Metra. Rail lines from the FRA/BTS North American Rail Network. Basemap from the US Census and Natural Earth; map tiles from OpenFreeMap, © OpenMapTiles, data from OpenStreetMap.
+      Unofficial. Amtrak positions from the <a href="https://amtraker.com" target="_blank" rel="noopener">Amtraker API</a>, which decodes Amtrak’s Track Your Train map. Commuter rail from each railroad’s public GTFS-Realtime feed: <a href="https://metrolinktrains.com/about/gtfs/" target="_blank" rel="noopener">Metrolink</a>, Caltrain via <a href="https://511.org/open-data" target="_blank" rel="noopener">511.org</a>, LIRR and Metro-North via <a href="https://www.mta.info/developers" target="_blank" rel="noopener">MTA</a>, <a href="https://www3.septa.org/" target="_blank" rel="noopener">SEPTA</a>, <a href="https://www.mbta.com/developers" target="_blank" rel="noopener">MBTA</a>, MARC, VRE, Tri-Rail, South Shore Line, <a href="https://developer.rideuta.com/" target="_blank" rel="noopener">UTA</a> FrontRunner, <a href="https://www.rtd-denver.com/open-records/open-spatial-information/real-time-feeds" target="_blank" rel="noopener">RTD</a> and Metra. Rail lines: FRA/BTS. Basemap: US Census, Natural Earth. Tiles: OpenFreeMap, © OpenMapTiles, data © OpenStreetMap.
     </div>
   </aside>
 
@@ -1233,19 +1234,19 @@ button:disabled { cursor: default; opacity: .5; }
       </button>
       <div class="pop layers" id="layers" role="dialog" aria-label="Map style" hidden>
         <fieldset><legend>Map style</legend>
-          <label class="opt"><input type="radio" name="mapstyle" value="minimal"><span><b>Minimal</b><small>Clean, quiet grey map.</small></span></label>
-          <label class="opt"><input type="radio" name="mapstyle" value="geo"><span><b>Geographic</b><small>Colourful map with parks, water, roads and terrain.</small></span></label>
-          <label class="opt"><input type="radio" name="mapstyle" value="rail"><span><b>Rail network</b><small>Railways emphasised, plus the routes trains are running on today.</small></span></label>
+          <label class="opt"><input type="radio" name="mapstyle" value="minimal"><span><b>Minimal</b><small>Quiet grey.</small></span></label>
+          <label class="opt"><input type="radio" name="mapstyle" value="geo"><span><b>Geographic</b><small>Colourful, with parks and roads.</small></span></label>
+          <label class="opt"><input type="radio" name="mapstyle" value="rail"><span><b>Rail network</b><small>Railways, and routes in use today.</small></span></label>
         </fieldset>
         <hr>
         <fieldset class="stn-modes"><legend>Stations</legend>
-          <label class="opt"><input type="radio" name="stationmode" value="quiet"><span><b>Quiet</b><small>Trains first. A few hubs, plus the stops of a selected train.</small></span></label>
-          <label class="opt"><input type="radio" name="stationmode" value="standard"><span><b>Standard</b><small>More stops as you zoom in, with room kept around trains.</small></span></label>
-          <label class="opt"><input type="radio" name="stationmode" value="all"><span><b>All</b><small>Every stop, when zoomed in. Dense in cities.</small></span></label>
-          <label class="opt"><input type="radio" name="stationmode" value="off"><span><b>Off</b><small>No station dots. Stations stay in search and station boards.</small></span></label>
+          <label class="opt"><input type="radio" name="stationmode" value="quiet"><span><b>Quiet</b><small>Few hubs, plus the selected train’s stops.</small></span></label>
+          <label class="opt"><input type="radio" name="stationmode" value="standard"><span><b>Standard</b><small>More stops as you zoom in.</small></span></label>
+          <label class="opt"><input type="radio" name="stationmode" value="all"><span><b>All</b><small>Every stop, when zoomed in.</small></span></label>
+          <label class="opt"><input type="radio" name="stationmode" value="off"><span><b>Off</b><small>No station dots.</small></span></label>
         </fieldset>
         <hr>
-        <label class="check" style="margin:0"><input type="checkbox" id="labelsToggle"> Train numbers and delays next to markers when zoomed in close</label>
+        <label class="check" style="margin:0"><input type="checkbox" id="labelsToggle"> Train numbers and delays when zoomed in</label>
       </div>
     </div>
     <div class="progress-overlay sig-none" id="progOverlay" hidden></div>
@@ -1253,7 +1254,7 @@ button:disabled { cursor: default; opacity: .5; }
     <div class="toast" id="toast" role="status" hidden></div>
     <div class="mapfoot">
       <button type="button" class="minimap" id="minimap" hidden aria-label="Zoom out to the whole route"></button>
-      <div class="est-hint" id="estHint">Markers move between reports along the track. Positions are estimated.</div>
+      <div class="est-hint" id="estHint">Positions are estimated.</div>
       <div class="scale" id="scale" aria-hidden="true"></div>
       <div class="tile-attr" id="tileAttr" hidden><a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></div>
     </div>
@@ -1274,10 +1275,10 @@ button:disabled { cursor: default; opacity: .5; }
     <section id="acctAuth">
       <div class="acct-welcome" id="acctWelcome" hidden><span class="logo"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="6" fill="currentColor"/><path d="M11 5v22M21 5v22" stroke="var(--paper)" stroke-width="2.4" stroke-linecap="round"/><path d="M7 10h18M7 16h18M7 22h18" stroke="var(--paper)" stroke-width="2" stroke-linecap="round"/></svg><span class="wordmark"><span class="trk">Track</span>side</span></span></div>
       <h2 id="acctTitle" tabindex="-1">Sign in</h2>
-      <p class="acct-lede" id="acctLede">Your saved trains, stations and settings follow you to any device you sign in on.</p>
+      <p class="acct-lede" id="acctLede">Your trains and settings follow you to any device.</p>
       <form class="acct-form" id="acctForm" novalidate>
         <label id="acctUserRow" hidden>Username<input name="username" id="acctUserIn" autocomplete="nickname" autocapitalize="off" spellcheck="false" maxlength="21">
-          <span class="acct-hint">How friends find you. Letters, numbers and underscores.</span></label>
+          <span class="acct-hint">How friends find you.</span></label>
         <label>Email<input type="email" name="email" id="acctEmailIn" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required></label>
         <label>Password<input type="password" name="password" id="acctPwIn" autocomplete="current-password" required>
           <span class="acct-hint" id="acctPwHint" hidden>At least 8 characters.</span></label>
@@ -1290,7 +1291,7 @@ button:disabled { cursor: default; opacity: .5; }
     </section>
     <section id="acctForgotView" hidden>
       <h2>Reset your password</h2>
-      <p class="acct-lede">Enter your account's email and Trackside will send you a link to choose a new password.</p>
+      <p class="acct-lede">We’ll email you a reset link.</p>
       <form class="acct-form" id="forgotForm" novalidate>
         <label>Email<input type="email" name="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" required></label>
         <p class="acct-err" role="alert" hidden></p>
@@ -1301,7 +1302,7 @@ button:disabled { cursor: default; opacity: .5; }
     </section>
     <section id="acctResetView" hidden>
       <h2>Choose a new password</h2>
-      <p class="acct-lede">You'll be signed in here, and signed out on your other devices.</p>
+      <p class="acct-lede">Other devices will be signed out.</p>
       <form class="acct-form" id="resetForm" novalidate>
         <label>New password<input type="password" name="password" autocomplete="new-password" required><span class="acct-hint">At least 8 characters.</span></label>
         <p class="acct-err" role="alert" hidden></p>
@@ -1314,9 +1315,9 @@ button:disabled { cursor: default; opacity: .5; }
       <p class="acct-lede" id="promptLede"></p>
       <form class="acct-form" id="promptForm" novalidate>
         <label id="promptUserRow">Username<input name="username" autocomplete="nickname" autocapitalize="off" spellcheck="false" maxlength="21">
-          <span class="acct-hint">3 to 20 letters, numbers or underscores, starting with a letter.</span></label>
+          <span class="acct-hint">3 to 20 letters, numbers or _.</span></label>
         <label id="promptPhoneRow">Phone number<input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="(555) 123-4567">
-          <span class="acct-hint">Friends who have your number in their contacts can find you. They never see it. Outside the US and Canada, start with + and the country code.</span></label>
+          <span class="acct-hint">Friends with this number in their contacts can find you. Outside the US and Canada, start with +.</span></label>
         <p class="acct-err" role="alert" hidden></p>
         <button type="submit" class="btn primary">Save</button>
       </form>
@@ -1328,10 +1329,10 @@ button:disabled { cursor: default; opacity: .5; }
       <div class="acct-quick"><button type="button" class="btn" id="acctFriends"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="5.2" r="2.4"/><path d="M1.6 13.6c.5-2.6 2.2-4 4.4-4s3.9 1.4 4.4 4"/><path d="M10.4 2.9a2.4 2.4 0 0 1 0 4.6M12 9.8c1.3.5 2.1 1.8 2.4 3.8"/></svg>Friends</button><button type="button" class="btn" id="acctSignOut">Sign out</button></div>
       <form class="acct-form" id="profileForm" novalidate>
         <h3>Profile</h3>
-        <p class="acct-hint">Friends find you by username or phone number. They see your username, never your number or email.</p>
+        <p class="acct-hint">Friends find you by username or number.</p>
         <label>Username<input name="username" autocomplete="nickname" autocapitalize="off" spellcheck="false" maxlength="21" required></label>
         <label>Phone number<input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="(555) 123-4567">
-          <span class="acct-hint">US and Canada numbers work as typed; others start with + and the country code. Leave it empty to remove it.</span></label>
+          <span class="acct-hint">Leave empty to remove. Outside the US and Canada, start with +.</span></label>
         <p class="acct-err" role="alert" hidden></p>
         <p class="acct-ok" role="status" hidden></p>
         <button type="submit" class="btn">Save profile</button>
@@ -1340,13 +1341,13 @@ button:disabled { cursor: default; opacity: .5; }
         <h3>Change password</h3>
         <input type="email" name="username" class="sr-only acct-user" autocomplete="username" tabindex="-1" aria-hidden="true">
         <label>Current password<input type="password" name="password" autocomplete="current-password" required></label>
-        <label>New password<input type="password" name="newPassword" autocomplete="new-password" required><span class="acct-hint">At least 8 characters. You'll stay signed in here; other devices will need to sign in again.</span></label>
+        <label>New password<input type="password" name="newPassword" autocomplete="new-password" required><span class="acct-hint">At least 8 characters. Other devices will be signed out.</span></label>
         <p class="acct-err" role="alert" hidden></p>
         <button type="submit" class="btn">Change password</button>
       </form>
       <form class="acct-form acct-danger" id="delForm" novalidate>
         <h3>Delete account</h3>
-        <p class="acct-hint">Deletes your account and everything synced to it. What's saved on this device stays here.</p>
+        <p class="acct-hint">Deletes your account and synced data. This device keeps its copy.</p>
         <input type="email" name="username" class="sr-only acct-user" autocomplete="username" tabindex="-1" aria-hidden="true">
         <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
         <p class="acct-err" role="alert" hidden></p>
@@ -1361,7 +1362,7 @@ button:disabled { cursor: default; opacity: .5; }
     <button type="button" class="icon-btn acct-x" data-close aria-label="Close">×</button>
     <h2 id="planTitle">Plan a trip</h2>
     <section id="planSearch">
-      <p class="acct-lede">Find a train on any day in the published timetables of Amtrak, VIA Rail, Brightline and 13 commuter railroads.</p>
+      <p class="acct-lede">Find trains on any day, from published timetables.</p>
       <div class="seg plan-mode" role="radiogroup" aria-label="Find by">
         <label><input type="radio" name="planMode" value="stations" checked><span>By station</span></label>
         <label><input type="radio" name="planMode" value="number"><span>By train number</span></label>
@@ -1387,9 +1388,9 @@ button:disabled { cursor: default; opacity: .5; }
     <button type="button" class="icon-btn acct-x" data-close aria-label="Close">×</button>
     <h2 id="frTitle" tabindex="-1">Friends</h2>
     <section id="frMainView">
-      <p class="acct-lede">You're <b id="frMe"></b> <button type="button" class="text-btn" id="frRename">Edit profile</button><br>Friends see each other's trips. They never see your email or phone number.</p>
+      <p class="acct-lede">You're <b id="frMe"></b> <button type="button" class="text-btn" id="frRename">Edit profile</button><br>Friends see your trips.</p>
       <form class="acct-form" id="frAddForm" novalidate>
-        <label for="frAddIn">Add a friend by username or phone number</label>
+        <label for="frAddIn">Add a friend</label>
         <div class="fr-add"><input id="frAddIn" name="who" placeholder="Username or phone number" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="32"><button type="submit" class="btn primary">Add</button></div>
         <p class="acct-err" role="alert" hidden></p>
         <p class="acct-ok" role="status" hidden></p>
@@ -1579,7 +1580,7 @@ const ICON = {
 };
 
 if (!window.d3 || !window.topojson || typeof BASEMAP === 'undefined' || typeof RAIL_DATA === 'undefined' || typeof SPRITES === 'undefined') {
-  document.getElementById('list').innerHTML = '<div class="empty"><strong>The map libraries didn’t load</strong>This page loads d3 and topojson from public CDNs. Check your internet connection and reload.</div>';
+  document.getElementById('list').innerHTML = '<div class="empty"><strong>Map libraries didn’t load</strong>Check your connection and reload.</div>';
   document.getElementById('statusText').textContent = 'Map data unavailable';
   document.getElementById('live').className = 'live error';
   return;
@@ -1606,7 +1607,7 @@ const store = {
 };
 /* What a signed-in person's devices share (see "accounts" below), and when each last changed on this device.
    Writes made while the page starts up aren't changes: they only store defaults. */
-const SYNCED = new Set(['favTrains', 'favStations', 'recentTrains', 'theme', 'motion', 'mapStyle', 'density', 'trainLabels']);
+const SYNCED = new Set(['favTrains', 'favStations', 'recentTrains', 'theme', 'motion', 'mapStyle', 'density', 'trainLabels', 'simplify']);
 let syncMeta = store.get('syncMeta', {});
 let session = store.get('session', null);   // { token, email, username, phone }
 let booting = true, applyingRemote = false, pushTimer = 0, lastPull = 0;
@@ -1622,6 +1623,7 @@ const prefs = {
   mapStyle: store.get('mapStyle', 'geo'),
   density: store.get('density', 'detailed'),
   trainLabels: store.get('trainLabels', true),
+  simplify: store.get('simplify', false),   // off: overlapping trains are drawn one by one; on: they're grouped into numbered circles
   stationMode: store.get('stationMode', 'quiet'),     // quiet | standard | all | off; stays on this device
   stationModeSet: store.get('stationModeSet', false), // true once the person picks one; the Stations tab then stops overriding it
 };
@@ -1771,7 +1773,7 @@ function classifyAlert(text, t) {
   if (type === 'cancel') summary = 'Cancelled' + (places.length ? ' between or near ' + joinList(places) : '');
   else if (type === 'disruption') summary = 'Service disrupted' + (places.length ? ' near ' + joinList(places.slice(0, 2)) : '') + (causes.length ? ', ' + causes[0] : '');
   else if (type === 'delay') summary = causes.length ? 'Delayed by ' + joinList(causes) : 'Running late';
-  else if (/tracking system|cellular/.test(s)) summary = 'Tracking can be patchy on this route, so times may lag';
+  else if (/tracking system|cellular/.test(s)) summary = 'Tracking may lag on this route';
   else if (/closed|closing|closure/.test(s)) summary = 'Station notice' + (places.length ? ': ' + places[0] : '');
   else summary = 'Service notice';
   return { type, sev, summary, text: text.trim(), places };
@@ -2095,6 +2097,7 @@ const zoom = d3.zoom()
   .scaleExtent([0.6, 2000])
   .on('zoom', (e) => {
     T = e.transform;
+    lastZoomAt = performance.now();
     gZoom.attr('transform', T);
     syncBasemap();
     mapEl.classList.toggle('close', T.k >= CLOSE_K);
@@ -2237,19 +2240,28 @@ const COMMUTER_SCALE = 0.72;   // commuter trains draw smaller than intercity on
    Labels: the selected train from LABEL_K_SEL; from LABEL_K, every train if few are in view (LABEL_ALL_MAX),
    otherwise the ones worth reading (favorites, then late trains), never on top of another train. */
 const CLUSTER_K = 2.4, CLUSTER_R = 15, LABEL_K = 10, LABEL_K_SEL = 4, LABEL_ALL_MAX = 18, LABEL_MAX = 30;
-let clusters = [], clusterHidden = new Set(), clusterAt = 0, clusterK = 0, clusterDirty = true;
+let clusters = [], clusterHidden = new Set(), clusterAt = 0, clusterK = 0, clusterDirty = true, lastZoomAt = 0;
 let roverId = null;   // the one map marker in the Tab order; arrow keys move between markers
+const bubble = (n) => 12 + Math.min(9, Math.sqrt(n) * 1.8);
+const centroid = (members) => {
+  let x = 0, y = 0;
+  for (const m of members) { x += m.sx; y += m.sy; }
+  return { x: x / members.length, y: y / members.length };
+};
 function recluster(data) {
   clusters = [];
   clusterHidden = new Set();
   clusterAt = performance.now();
   clusterK = T.k;
   clusterDirty = false;
+  if (!prefs.simplify) return;
   const { w, h } = mapSize();
   const pts = data.filter((d) => d.p && d.id !== selectedId && d.id !== roverFocusId && d.sx > -40 && d.sx < w + 40 && d.sy > -40 && d.sy < h + 40);
   pts.sort((a, b) => a.sx - b.sx);
   const used = new Set();
-  const R = T.k < CLUSTER_K ? CLUSTER_R * 1.5 : spriteSize(T.k, false) * 0.55;
+  // blends from the zoomed-out distance to the zoomed-in one, so groups don't jump as the map passes CLUSTER_K
+  const blend = Math.min(1, Math.max(0, (T.k - 1) / (CLUSTER_K * 2 - 1)));
+  const R = CLUSTER_R * 2.2 * (1 - blend) + spriteSize(T.k, false) * 0.9 * blend;
   for (let i = 0; i < pts.length; i++) {
     const a = pts[i];
     if (used.has(a.id)) continue;
@@ -2260,9 +2272,29 @@ function recluster(data) {
     }
     if (group.length >= 3) {
       group.forEach((g) => { used.add(g.id); clusterHidden.add(g.id); });
-      clusters.push({ key: group.map((g) => g.id).sort().join(','), members: group });
+      clusters.push({ members: group });
     }
   }
+  // circles that would overlap become one group, and a train under a circle joins it, so none is hidden out of reach
+  for (let merged = true; merged;) {
+    merged = false;
+    for (let i = 0; i < clusters.length && !merged; i++) {
+      for (let j = i + 1; j < clusters.length && !merged; j++) {
+        const a = centroid(clusters[i].members), b = centroid(clusters[j].members);
+        if (Math.hypot(a.x - b.x, a.y - b.y) < bubble(clusters[i].members.length) + bubble(clusters[j].members.length) + 2) {
+          clusters[i].members = clusters[i].members.concat(clusters[j].members);
+          clusters.splice(j, 1);
+          merged = true;
+        }
+      }
+    }
+  }
+  for (const d of pts) {
+    if (clusterHidden.has(d.id)) continue;
+    const c = clusters.find((q) => { const p = centroid(q.members); return Math.hypot(d.sx - p.x, d.sy - p.y) < bubble(q.members.length); });
+    if (c) { c.members.push(d); clusterHidden.add(d.id); }
+  }
+  for (const c of clusters) c.key = c.members.map((g) => g.id).sort().join(',');
 }
 const pie = d3.pie().sort(null).value((d) => d.n);
 function renderClusters() {
@@ -2283,14 +2315,18 @@ function renderClusters() {
     const key = n + ':' + counts.map((q) => q.n).join(',');
     if (this.__key !== key) {
       this.__key = key;
-      const r = 12 + Math.min(9, Math.sqrt(n) * 1.8);
+      const r = bubble(n);
+      const was = this.__r || r;
+      this.__r = r;
       const g = d3.select(this);
-      g.selectAll('*').remove();
-      g.append('circle').attr('class', 'bg').attr('r', r);
+      g.select('g.inner').remove();
+      const inner = g.append('g').attr('class', 'inner');
+      inner.append('circle').attr('class', 'bg').attr('r', r);
       const arc = d3.arc().innerRadius(r - 4).outerRadius(r);
-      g.selectAll('path').data(pie(counts.filter((q) => q.n))).enter().append('path')
+      inner.selectAll('path').data(pie(counts.filter((q) => q.n))).enter().append('path')
         .attr('class', (d) => 'sig-' + d.data.s).attr('d', arc).style('fill', 'var(--sig)');
-      g.append('text').attr('dy', 4.5).text(n);
+      inner.append('text').attr('dy', 4.5).text(n);
+      if (was !== r) inner.attr('transform', `scale(${(was / r).toFixed(3)})`).transition().duration(220).ease(d3.easeCubicOut).attr('transform', 'scale(1)');
       const parts = counts.filter((q) => q.n).map((q) => q.n + ' ' + SIG_LABEL[q.s].toLowerCase());
       g.attr('aria-label', `Group of ${n} trains: ${parts.join(', ')}. Press Enter to zoom in.`);
     }
@@ -2369,7 +2405,9 @@ function positionTrains() {
     d.sy = d.p ? T.applyY(d.p[1]) : NaN;
   }
   if (!replay.active) {
-    if (clusterDirty || Math.abs(clusterK - T.k) > 1e-3 || performance.now() - clusterAt > 2500) recluster(data);
+    // while the map is moving, groups stay as they are; regrouping once it settles keeps them from flickering
+    const moving = performance.now() - lastZoomAt < 160;
+    if (clusterDirty || (!moving && (Math.abs(clusterK - T.k) > 1e-3 || performance.now() - clusterAt > 2500))) recluster(data);
   } else if (clusters.length || clusterHidden.size) { clusters = []; clusterHidden = new Set(); }
   nodes.each(function (d) {
     const hidden = clusterHidden.has(d.id);
@@ -3137,12 +3175,12 @@ function watchLocation(onPos, onErr, opts) {
 function startLocate(fly) {
   if (location.protocol === 'file:') {
     locState = 'unavailable'; onLocationChange();
-    toast('Location only works when Trackside is opened from a web address (http:// or https://), not as a file on your computer. Browsers block it for local files.');
+    toast('Location needs a web address, not a file on your computer.');
     return;
   }
   if (!nativeGeo && (!window.isSecureContext || !('geolocation' in navigator))) {
     locState = 'unavailable'; onLocationChange();
-    toast('Location needs a secure web address (https:// or localhost). This page was opened over plain http.');
+    toast('Location needs https or localhost.');
     return;
   }
   if (meWatch != null) { if (fly && me) flyToMe(); return; }
@@ -3189,9 +3227,9 @@ function onPositionError(err) {
   stopLocate(err.code !== 1);
   locState = err.code === 1 ? 'denied' : 'off';
   onLocationChange();
-  toast(err.code === 1 ? (IN_APP ? 'Location access is off for Trackside. Turn it on in your phone’s Settings, then try again.' : 'Location access is blocked. Allow it for this page in your browser settings, then try again.') + ' You can still search for any train or station.'
+  toast(err.code === 1 ? (IN_APP ? 'Turn on location for Trackside in Settings.' : 'Location is blocked. Allow it in your browser settings.') + ' You can still search for any train or station.'
     : err.code === 2 ? "Your location isn't available right now. Try again in a moment."
-    : 'Finding your location took too long. Try again.');
+    : 'Location timed out. Try again.');
 }
 function placeMe() {
   if (!me) return;
@@ -3312,7 +3350,7 @@ function stationTip(s) {
   const n = upcomingAt(s.code).length;
   return `<b>${esc(s.name || s.code)}</b> <span class="t-est">${esc(codeLabel(s.code))}</span>`
     + (s.city ? `<br>${esc(s.city)}${s.state ? ', ' + esc(s.state) : ''}` : '')
-    + `<br>${n ? plural(n, 'train') + ' still to arrive' : 'No more trains in the live feed'}`;
+    + `<br>${n ? plural(n, 'train') + ' still to arrive' : 'No more trains'}`;
 }
 function closePops() {
   for (const [pop, btn] of [['#settings', '#settingsBtn'], ['#layers', '#layersBtn']]) {
@@ -3353,7 +3391,7 @@ function updateProgressUI(t) {
   }
   const box = $('#dProg');
   if (box) {
-    const html = show ? progHTML(t) : '<p class="note">Route progress appears once the station list loads.</p>';
+    const html = show ? progHTML(t) : '<p class="note">Progress appears once stations load.</p>';
     if (box.__h !== html) { box.__h = html; box.innerHTML = html; }
   }
   if (wasHidden !== progEl.hidden) updateScale();
@@ -3444,7 +3482,7 @@ function updateMinimap(force) {
   el.hidden = false;
   const small = mqMobile.matches && !minimapOpen;
   el.classList.toggle('small', small);
-  el.setAttribute('aria-label', small ? 'Show the whole route in a small overview map' : 'Zoom out to the whole route');
+  el.setAttribute('aria-label', small ? 'Show whole route' : 'Zoom out to the whole route');
   const w = el.clientWidth || 190, h = el.clientHeight || 130;
   const key = t.id + ':' + w + ':' + (t.pathDone.length + t.pathAhead.length) + ':' + document.documentElement.getAttribute('data-theme');
   if (force || wasHidden || el.__key !== key) {
@@ -3880,7 +3918,7 @@ function renderSummary() {
   const med = delays.length ? delays[Math.floor((delays.length - 1) / 2)] : null;
   $('#sumText').innerHTML = run.length
     ? `<strong>${run.length} trains running.</strong> ${known ? Math.round((counts.ok / known) * 100) + '% on time, median delay ' + med + ' min.' : ''}`
-    : 'No trains running with these filters.';
+    : 'No trains match these filters.';
   $('#bar').innerHTML = SIG_ORDER.filter((k) => counts[k]).map((k) => `<i class="sig-${k}" style="flex-grow:${counts[k]}"></i>`).join('');
   $('#keys').innerHTML = SIG_ORDER.map((k) => `<button type="button" class="key sig-${k}" data-sig="${k}" aria-pressed="${delayFilter === k}" title="${delayFilter === k ? 'Show all trains' : 'Show only these trains'}"><span class="sw"></span>${SIG_LABEL[k]} <b>${counts[k]}</b></button>`).join('');
 }
@@ -3910,7 +3948,7 @@ function sorted(list) {
 function syncSortOptions() {
   const o = $('#sort option[value="near"]');
   o.disabled = !me;
-  o.textContent = me ? 'Sort: Nearest to me' : 'Sort: Nearest to me (turn on location)';
+  o.textContent = me ? 'Sort: Nearest to me' : 'Sort: Nearest (needs location)';
   $('#sort').value = sortBy === 'near' && !me ? 'route' : sortBy;
 }
 $('#sort').addEventListener('change', (e) => { sortBy = e.target.value; store.set('sort', sortBy); renderList(); });
@@ -3978,7 +4016,7 @@ function renderList() {
   if (!trains.length) {
     listEl.innerHTML = lastError
       ? emptyState('Live train data is temporarily unavailable', "The Amtraker API didn't respond. Trackside retries every minute.", [['Try again now', 'retry', true]])
-      : '<div class="empty"><strong>Loading trains</strong>Fetching positions from the Amtraker API.</div>';
+      : '<div class="empty"><strong>Loading trains</strong>Fetching positions.</div>';
     return;
   }
   if (!shown.length) {
@@ -4004,7 +4042,7 @@ const isFavTrain = (num) => favTrains.some((f) => f.num === num);
 const isFavStation = (code) => favStations.includes(code);
 function toggleFavTrain(t) {
   if (isFavTrain(t.num)) { favTrains = favTrains.filter((f) => f.num !== t.num); toast(`Removed train ${t.num} from your trains.`, 3500); }
-  else { favTrains = [{ num: t.num, route: t.route }, ...favTrains].slice(0, 30); toast(`Saved train ${t.num}. Find it under Track a train, or in search.`, 4500); }
+  else { favTrains = [{ num: t.num, route: t.route }, ...favTrains].slice(0, 30); toast(`Saved train ${t.num}.`, 4500); }
   store.set('favTrains', favTrains);
 }
 function toggleFavStation(code) {
@@ -4028,7 +4066,7 @@ async function shareLink(url, title) {
   if (navigator.share && mqMobile.matches) {
     try { await navigator.share({ title, url }); return; } catch (err) { if (err && err.name === 'AbortError') return; }
   }
-  try { await navigator.clipboard.writeText(url); toast('Link copied. Opening it shows this ' + (url.includes('#s-') ? 'station board.' : 'train, live.'), 4000); }
+  try { await navigator.clipboard.writeText(url); toast('Link copied.', 4000); }
   catch { toast('Copy this link: ' + url, 12000); }
 }
 
@@ -4440,7 +4478,7 @@ function renderDetail() {
         <div class="d-status"><span class="pill"><span class="sw"></span>${esc(statusText(t))}</span>${vsLine ? `<span>${esc(vsLine)}</span>` : ''}</div>
         <p class="d-fresh${stale ? ' warn' : ''}"><span class="fdot"></span>${esc(freshTxt)}</p>
       </section>
-      <section id="dProg" aria-label="Route progress">${progHTML(t) || '<p class="note">Route progress appears once the station list loads.</p>'}</section>
+      <section id="dProg" aria-label="Route progress">${progHTML(t) || '<p class="note">Progress appears once stations load.</p>'}</section>
       <div class="d-actbar">
         <button type="button" class="btn" id="center">${ICON.map}Show on map</button>
         <button type="button" class="btn" id="follow" aria-pressed="${following}" title="Zoom in close and keep this train centered">${following ? 'Following' : 'Follow'}</button>
@@ -4455,7 +4493,7 @@ function renderDetail() {
         <div><dt>Map position</dt><dd>Estimated<small>from the last report</small></dd></div>
         <div><dt>Operator</dt><dd>${esc(provName(t.provider))}</dd></div>
       </dl>
-      <p class="est-note"><b>The marker's position is estimated.</b> ${esc(t.feed ? provName(t.provider) : 'Amtrak')} reports where each train is every ${t.provider === 'Metrolink' ? 'minute or so' : 'few minutes'}; between reports, Trackside moves the marker along the track at the last reported speed. ${ghostVisible ? 'The dashed circle on the map, visible when zoomed in, marks the last reported position.' : ''}${t.trailCount ? ' Small dots behind the train are positions this browser recorded in the last hour.' : ''}</p>
+      <p class="est-note"><b>Position is estimated.</b> ${esc(t.feed ? provName(t.provider) : 'Amtrak')} reports positions every ${t.provider === 'Metrolink' ? 'minute or so' : 'few minutes'}. Between reports, the marker moves at the last reported speed. ${ghostVisible ? 'The dashed circle marks the last reported position.' : ''}${t.trailCount ? ' Small dots show its last hour.' : ''}</p>
       ${noticesHTML(t)}
       ${delayChart(t)}
       <div class="tt">
@@ -4464,7 +4502,7 @@ function renderDetail() {
         <div class="tt-head"><span></span><span>Station</span><span>Scheduled</span><span>Actual / estimate</span></div>
         <ol class="stops">${rows.join('')}</ol>
       </div>
-      <p class="note">Times are local to each station, with the time zone shown where it changes. Dp means departs and Ar means arrives. Bold times were recorded; italic times marked “est.” are Amtrak's estimates. Select a station for its arrivals and departures.</p>
+      <p class="note">Times are local to each station. Dp = departs, Ar = arrives. Bold times were recorded; “est.” times are estimates. Select a station for its board.</p>
     </div>`;
   $('#back').onclick = goBack;
   $('#center').onclick = () => { setFollow(false); panTo(t, true); if (mqMobile.matches) setSheet('collapsed'); };
@@ -4473,13 +4511,13 @@ function renderDetail() {
   $('#shareT').onclick = () => shareLink(baseUrl() + '#t-' + encodeURIComponent(t.id), `Train ${t.num} ${t.route} on Trackside`);
   $('#compareBtn').onclick = () => {
     compareId = compareId === t.id ? null : t.id;
-    if (compareId) toast(`Train ${t.num} is pinned. Open another train to compare them side by side.`, 4500);
+    if (compareId) toast(`Train ${t.num} pinned. Open another to compare.`, 4500);
     renderDetail();
   };
   const tb = $('#tripBtn');
   if (tb) tb.onclick = () => {
     const p = tripOf(t);
-    if (p) toast(`Train ${p.num} is in your trips, from ${p.from.name} to ${p.to.name}. Remove it under Track a train.`, 5000);
+    if (p) toast(`Train ${p.num} is in your trips.`, 5000);
     else openPlanPick(runFromLive(t));
   };
   const cmpOpen = $('#cmpOpen');
@@ -4670,9 +4708,9 @@ function renderBoard() {
   let rows;
   if (shown.length) rows = shown.map((e) => boardRow(e, boardTab)).join('');
   else if (!entries.length) rows = emptyState(boardTab === 'arr' ? 'No arrivals in the live feed' : 'No departures in the live feed', "None of the trains currently in the feed stop here. The feed covers trains that are running or about to start, so check back later.");
-  else if (boardFilter === 'hour') rows = emptyState(boardTab === 'arr' ? 'Nothing arriving in the next hour' : 'Nothing departing in the next hour', 'Later trains are listed under Upcoming.', [['Show upcoming trains', 'board-upcoming', true], ['All scheduled', 'board-all']]);
-  else if (boardFilter === 'upcoming') rows = emptyState('No more trains today in the live feed', 'Every train in the feed has already passed this station.', [['Show all scheduled', 'board-all', true]]);
-  else rows = emptyState('Nothing here yet', 'No train in the feed has passed this station yet.', [['Show upcoming trains', 'board-upcoming', true]]);
+  else if (boardFilter === 'hour') rows = emptyState(boardTab === 'arr' ? 'Nothing in the next hour' : 'Nothing in the next hour', 'Later trains are under Upcoming.', [['Show upcoming trains', 'board-upcoming', true], ['All scheduled', 'board-all']]);
+  else if (boardFilter === 'upcoming') rows = emptyState('No more trains today', 'All trains have passed.', [['Show all scheduled', 'board-all', true]]);
+  else rows = emptyState('Nothing here yet', 'No trains have passed yet.', [['Show upcoming trains', 'board-upcoming', true]]);
   box.innerHTML = `
     <div class="detail">
       <div class="d-nav">
@@ -4685,7 +4723,7 @@ function renderBoard() {
       <header class="st-head">
         <p><span class="st-code">${esc(codeLabel(st.code))}</span>${esc(place)}</p>
         <h2>${esc(st.name || st.code)}</h2>
-        <p>${nextHour ? `<b style="color:var(--ink)">${plural(nextHour, 'train')} arriving in the next hour</b>, ` : ''}${upcoming ? plural(upcoming, 'train') + ' still to come' : 'No more trains in the live feed'}${me ? ` · ${fmtMi(kmFromMe(st.lon, st.lat))} from you` : ''}</p>
+        <p>${nextHour ? `<b style="color:var(--ink)">${plural(nextHour, 'train')} arriving in the next hour</b>, ` : ''}${upcoming ? plural(upcoming, 'train') + ' still to come' : 'No more trains'}${me ? ` · ${fmtMi(kmFromMe(st.lon, st.lat))} from you` : ''}</p>
       </header>
       <div class="d-actbar"><button type="button" class="btn" id="stCenter">${ICON.map}Show on map</button></div>
       <div class="board-tabs" role="tablist" aria-label="Board">
@@ -4696,7 +4734,7 @@ function renderBoard() {
         ${Object.entries(BOARD_FILTERS).map(([k, v]) => `<button type="button" class="chip" data-bf="${k}" aria-pressed="${boardFilter === k}">${esc(v.label || v[boardTab])}</button>`).join('')}
       </div>
       <div class="board" role="tabpanel" aria-labelledby="bt-${boardTab}">${rows}</div>
-      <p class="note">Times are local to this station. “Actual” times were recorded; “estimated” times are Amtrak's estimates. Upcoming lists trains that haven't reached this station yet; the board covers trains in the live feed (running now or starting soon), not the full timetable.</p>
+      <p class="note">Times are local to this station. “Actual” times were recorded; “estimated” are estimates. Upcoming lists trains still to arrive.</p>
     </div>`;
   $('#stBack').onclick = goBack;
   $('#stCenter').onclick = () => { flyToStation(st); if (mqMobile.matches) setSheet('collapsed'); };
@@ -4719,7 +4757,7 @@ function renderTrack() {
 function renderFavs() {
   const el = $('#favList');
   $('#favCount').textContent = favTrains.length ? favTrains.length + ' saved' : '';
-  if (!favTrains.length) { el.innerHTML = '<p class="hint">Star a train on its details page to keep it here. Saved trains stay on this device, and sync to your account when you’re signed in.</p>'; return; }
+  if (!favTrains.length) { el.innerHTML = '<p class="hint">Star a train to keep it here. Syncs when signed in.</p>'; return; }
   el.innerHTML = '<div class="list">' + favTrains.map((f) => {
     const live = liveFor(f.num);
     if (live.length) return live.map((t) => trainRow(t)).join('');
@@ -4734,7 +4772,7 @@ function renderRecent() {
 function renderTrip() {
   const a = $('#fromSt').dataset.code, b = $('#toSt').dataset.code;
   const el = $('#tripResults');
-  if (!a || !b) { el.innerHTML = '<p class="hint">Lists trains in the live feed that stop at both stations, in that order.</p>'; return; }
+  if (!a || !b) { el.innerHTML = '<p class="hint">Trains that stop at both, in order.</p>'; return; }
   if (a === b) { el.innerHTML = '<p class="hint">Pick two different stations.</p>'; return; }
   const past = $('#tripPast').checked;
   const now = Date.now();
@@ -4757,7 +4795,7 @@ function renderTrip() {
   const dur = (m) => (m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ' min');
   const head = `<p class="hint" style="color:var(--ink)"><b>${plural(res.length, 'direct train')}</b> from ${esc(A?.name || a)} to ${esc(B?.name || b)}${!past && left ? `, plus ${left} that already left` : ''}.</p>`;
   if (!res.length) {
-    el.innerHTML = head + `<p class="hint">${left && !past ? 'Turn on “Include trains that already left” to see them. ' : ''}No direct train in today's live feed serves this pair in this direction. Try swapping the stations, or check Amtrak for connections.</p>`;
+    el.innerHTML = head + `<p class="hint">${left && !past ? 'Turn on “Include trains that already left” to see them. ' : ''}No direct train today. Try swapping the stations.</p>`;
     return;
   }
   el.innerHTML = head + '<div class="list">' + res.map(({ t, si, sj, gone, dep, arr }) => {
@@ -4768,7 +4806,7 @@ function renderTrip() {
       + `<small>${gone ? 'Left' : 'Departs'} ${esc(codeShort(si.code))} <b>${esc(weekday(si.dep || si.schDep, si.tz))} ${esc(clockZ(si.dep || si.schDep, si.tz))}</b>${!gone && si.dep ? ' est.' : ''} → ${esc(codeShort(sj.code))} <b>${esc(clockZ(sj.arr || sj.schArr, sj.tz))}</b> ${esc(weekday(sj.arr || sj.schArr, sj.tz))}</small>`
       + `<small class="r-meta">${isFinite(mins) && mins > 0 ? dur(mins) + ' trip · ' : ''}${gone ? 'already on its way' : esc(relTime(dep))}${d != null && Math.abs(d) > 1 ? ' · ' + esc(shortDelta(d)) + ' at ' + esc(codeShort(si.code)) : ''}</small></span>`
       + `<span class="r-delay">${esc(statusText(t))}</span></button>`;
-  }).join('') + '</div><p class="hint">Only direct trains in the live feed (running now or about to start) are shown. This isn’t a full timetable and doesn’t include connections.</p>';
+  }).join('') + '</div><p class="hint">Direct trains running now or starting soon. No connections.</p>';
 }
 stationPicker($('#fromSt'), $('#fromSugg'), renderTrip);
 stationPicker($('#toSt'), $('#toSugg'), renderTrip);
@@ -4784,10 +4822,10 @@ $('#swapTrip').onclick = () => {
 };
 
 function locationCard(what) {
-  if (locState === 'asking') return `<div class="loc-card"><strong>Waiting for your location…</strong>Your browser may be asking for permission.</div>`;
-  if (locState === 'denied') return `<div class="loc-card"><strong>Location is blocked</strong>To see ${what} near you, allow location for this site in your browser settings. Meanwhile, search for a station or train above, or browse the station list.<div class="actions"><button type="button" class="btn" data-act="locate">Try again</button><button type="button" class="btn" data-act="goto-stations">Browse stations</button></div></div>`;
+  if (locState === 'asking') return `<div class="loc-card"><strong>Waiting for your location…</strong></div>`;
+  if (locState === 'denied') return `<div class="loc-card"><strong>Location is blocked</strong>Allow location in your browser settings, or search above.<div class="actions"><button type="button" class="btn" data-act="locate">Try again</button><button type="button" class="btn" data-act="goto-stations">Browse stations</button></div></div>`;
   if (locState === 'unavailable') return `<div class="loc-card"><strong>Location isn't available here</strong>Browsers only share location with pages opened from a secure web address (https). You can still search for a station or train above.</div>`;
-  return `<div class="loc-card"><strong>See ${what} near you</strong>Trackside uses your location only to sort what's nearby. It stays in your browser and isn't sent anywhere.<div class="actions"><button type="button" class="btn primary" data-act="locate">${ICON.locate}Use my location</button></div></div>`;
+  return `<div class="loc-card"><strong>See ${what} near you</strong>Stays on your device.<div class="actions"><button type="button" class="btn primary" data-act="locate">${ICON.locate}Use my location</button></div></div>`;
 }
 const NEAR_KM = 40.2335;   // 25 miles
 let nearShowAll = false;
@@ -4800,7 +4838,7 @@ function renderNearTrains() {
   $('#nearCount').textContent = within.length + ' within 25 mi';
   const head = within.length
     ? `<p class="hint" style="color:var(--ink)"><b>${plural(within.length, 'train')} within 25 miles</b>, nearest first. Distances are straight-line to each train's estimated position.</p>`
-    : `<p class="hint" style="color:var(--ink)"><b>No trains within 25 miles right now.</b> The nearest ones are below.</p>`;
+    : `<p class="hint" style="color:var(--ink)"><b>Nothing within 25 miles.</b> Nearest are below.</p>`;
   const rows = (within.length ? (nearShowAll ? within : within.slice(0, 8)) : list.slice(0, 5));
   el.innerHTML = head + '<div class="list">' + rows.map((x) => trainRow(x.t, { dist: x.km })).join('') + '</div>'
     + (within.length > 8 && !nearShowAll ? `<div class="more-rows"><button type="button" class="btn" data-act="near-more">Show all ${within.length}</button></div>` : '');
@@ -4931,7 +4969,7 @@ function openReplay() {
   Object.assign(replay, { active: true, playing: false, tracks, t0, t1, cur: t0, last: 0 });
   mapEl.classList.add('replaying');
   $('#replayBtn').setAttribute('aria-pressed', 'true');
-  $('#replayBtn').setAttribute('aria-label', 'Stop replay and go back to live');
+  $('#replayBtn').setAttribute('aria-label', 'Back to live');
   hideTip();
   renderPlaybar();
   positionAll();
@@ -5232,13 +5270,23 @@ function syncSettings() {
   $$('input[name="mapstyle"]').forEach((i) => { i.checked = i.value === prefs.mapStyle; });
   $$('input[name="stationmode"]').forEach((i) => { i.checked = i.value === effectiveStationMode(); });
   $('#labelsToggle').checked = !!prefs.trainLabels;
+  $('#simplifyToggle').checked = !!prefs.simplify;
 }
 $('#settings').addEventListener('change', (e) => {
   const i = e.target;
   if (i.name === 'theme') { prefs.theme = i.value; store.set('theme', i.value); applyTheme(); updateMinimap(true); updateBasemapStyle(); }
   else if (i.name === 'motion') { prefs.motion = i.value; store.set('motion', i.value); applyMotion(); }
   else if (i.name === 'density') setDensity(i.value);
+  else if (i.id === 'simplifyToggle') setSimplify(i.checked);
 });
+function setSimplify(on, save = true) {
+  prefs.simplify = on;
+  if (save) store.set('simplify', on);
+  $('#simplifyToggle').checked = on;
+  clusterDirty = true;
+  if (!on) { clusters = []; clusterHidden = new Set(); }
+  positionTrains();
+}
 function setMapStyle(s) {
   prefs.mapStyle = s;
   store.set('mapStyle', s);
@@ -5267,7 +5315,7 @@ $('#home').addEventListener('click', (e) => { e.preventDefault(); nav.length = 0
    database the worker uses can change without touching anything here. */
 const ACCOUNTS_API = FEEDS_API;
 const LISTS = { favTrains: [(x) => x.num, 30], favStations: [(x) => x, 30], recentTrains: [(x) => x.num, 8] };
-const SYNC_DEFAULTS = { theme: 'auto', motion: 'system', mapStyle: 'geo', density: 'detailed', trainLabels: true };
+const SYNC_DEFAULTS = { theme: 'auto', motion: 'system', mapStyle: 'geo', density: 'detailed', trainLabels: true, simplify: false };
 const isTrainList = (v) => Array.isArray(v) && v.every((x) => x && typeof x.num === 'string' && typeof x.route === 'string');
 const ACCEPT = {   // values from the account are checked before they're used
   favTrains: isTrainList,
@@ -5278,6 +5326,7 @@ const ACCEPT = {   // values from the account are checked before they're used
   mapStyle: (v) => ['minimal', 'geo', 'rail'].includes(v),
   density: (v) => ['detailed', 'compact'].includes(v),
   trainLabels: (v) => typeof v === 'boolean',
+  simplify: (v) => typeof v === 'boolean',
 };
 
 function noteLocalChange(k) {
@@ -5298,11 +5347,11 @@ async function api(method, path, body) {
   try {
     res = await fetch(ACCOUNTS_API + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store' });
   } catch {
-    throw Object.assign(new Error('Couldn’t reach Trackside. Check your connection and try again.'), { status: 0 });
+    throw Object.assign(new Error('Can’t reach Trackside. Try again.'), { status: 0 });
   }
   const out = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
-    if (res.status === 401 && session && !path.startsWith('/v1/auth/')) endSession('You were signed out. Sign in again to keep syncing.');
+    if (res.status === 401 && session && !path.startsWith('/v1/auth/')) endSession('Signed out. Sign in to keep syncing.');
     throw Object.assign(new Error((out && out.error && out.error.message) || `Something went wrong (error ${res.status}).`), { status: res.status, code: out && out.error && out.error.code });
   }
   return out;
@@ -5317,6 +5366,7 @@ function applyValue(k, v) {
   else if (k === 'mapStyle') { if (v !== prefs.mapStyle) setMapStyle(v); }
   else if (k === 'density') setDensity(v);
   else if (k === 'trainLabels') { prefs.trainLabels = v; positionTrains(); }
+  else if (k === 'simplify') setSimplify(v, false);
   store.set(k, v);
 }
 /* Takes the account's copy of each key where it's newer than this device's, and returns what this device should
@@ -5375,7 +5425,7 @@ async function pullSync({ merge = false } = {}) {
     if (Object.keys(send).length) await sendSync(send);
     else setSyncText('Synced');
   } catch {
-    if (session) setSyncText('Couldn’t sync. Trackside will try again.', true);
+    if (session) setSyncText('Couldn’t sync. Retrying.', true);
   }
 }
 async function pushSync() {
@@ -5386,7 +5436,7 @@ async function pushSync() {
   try { await sendSync(send); } catch {
     if (!session) return;
     for (const k of Object.keys(send)) dirty.add(k);
-    setSyncText('Couldn’t sync. Trackside will try again.', true);
+    setSyncText('Couldn’t sync. Retrying.', true);
     clearTimeout(pushTimer);
     pushTimer = setTimeout(pushSync, 30000);
   }
@@ -5404,8 +5454,8 @@ function renderAccount() {
   b.toggleAttribute('data-signed-in', !!session);
   $('#acctAvatar').hidden = !session;
   $('#acctAvatar').textContent = session ? (session.username || session.email).charAt(0) : '';
-  b.title = session ? 'Your account' : 'Sign in or create an account';
-  b.setAttribute('aria-label', session ? `Your account, ${session.username ? '@' + session.username : session.email}` : 'Sign in or create an account');
+  b.title = session ? 'Your account' : 'Sign in';
+  b.setAttribute('aria-label', session ? `Your account, ${session.username ? '@' + session.username : session.email}` : 'Sign in');
   if (session) $('#acctEmail2').textContent = session.email;
 }
 function setSession(token, user) {
@@ -5458,7 +5508,7 @@ function setAuthMode(m) {
 }
 const ACCT_VIEWS = { auth: ['#acctAuth', '#acctEmailIn'], forgot: ['#acctForgotView', '#forgotForm input'], reset: ['#acctResetView', '#resetForm input'],
   profile: ['#acctProfileView', '#acctProfileView h2'], manage: ['#acctManageView', '#acctManageView h2'] };
-const ACCT_LEDE = 'Your saved trains, stations, settings and trips follow you to any device you sign in on.';
+const ACCT_LEDE = 'Your trains and settings follow you to any device.';
 function showAcctView(view) {
   for (const [k, [sel]] of Object.entries(ACCT_VIEWS)) $(sel).hidden = k !== view;
   $$('#acct .acct-err, #acct .acct-ok').forEach((el) => showErr(el, ''));
@@ -5495,7 +5545,7 @@ function closeAccount() {
 let welcoming = false;
 function openWelcome() {
   welcoming = true;
-  openAccount('auth', 'Save the trains you’re taking, see where your friends are riding, and keep your trains and settings on every device.');
+  openAccount('auth', 'Save trips, see friends’ trains, and sync across devices.');
   setAuthMode('signup');
   $('#acctWelcome').hidden = $('#acctLater').hidden = false;
 }
@@ -5512,12 +5562,12 @@ $('#forgotForm').addEventListener('submit', (e) => {
   const f = e.target, err = $('.acct-err', f), ok = $('.acct-ok', f);
   const email = f.email.value.trim();
   showErr(ok, '');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr(err, 'Enter the email address of your account.'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr(err, 'Enter your account email.'); return; }
   busy($('button[type=submit]', f), async () => {
     try {
       await api('POST', '/v1/auth/reset', { email });
       showErr(err, '');
-      showErr(ok, `If there’s an account for ${email}, a reset link is on its way. It works once, for 30 minutes. Check your spam folder if it doesn’t arrive.`);
+      showErr(ok, `If there’s an account for ${email}, a reset link is on its way. Check spam.`);
     } catch (ex) { showErr(err, ex.message); }
   });
 });
@@ -5532,7 +5582,7 @@ $('#resetForm').addEventListener('submit', (e) => {
       setSession(r.token, r.user);
       renderAccount();
       closeAccount();
-      toast(`Password changed. You’re signed in as ${session.email}.`, 5000);
+      toast(`Password changed. Signed in as ${session.email}.`, 5000);
       await pullSync({ merge: true });
       await loadTrips();
       loadFriends();
@@ -5570,8 +5620,8 @@ $('#acctForm').addEventListener('submit', (e) => {
   busy($('#acctSubmit'), async () => {
     try {
       await signIn(mode, email, password, username);
-      toast(mode === 'signup' ? `Account created. Your trips and saved trains now sync, and friends can add you as @${session.username}.` : `Signed in as ${session.email}.`, 5000);
-      if (needsProfile()) openProfilePrompt(mode === 'signup' ? { lede: 'Your account is ready. Add your phone number too, so friends who have it in their contacts can find you.' } : {});
+      toast(mode === 'signup' ? `Account created. You’re @${session.username}.` : `Signed in as ${session.email}.`, 5000);
+      if (needsProfile()) openProfilePrompt(mode === 'signup' ? { lede: 'Account ready. Add a number so friends can find you.' } : {});
       else closeAccount();
     } catch (ex) { showErr(err, ex.message); }
   });
@@ -5585,7 +5635,7 @@ $('#pwForm').addEventListener('submit', (e) => {
       const r = await api('POST', '/v1/me/password', { password: f.password.value, newPassword: f.newPassword.value });
       setSession(r.token, r.user);
       closeAccount();
-      toast('Password changed. Other devices will need to sign in again.', 4500);
+      toast('Password changed. Other devices signed out.', 4500);
     } catch (ex) { showErr(err, ex.message); }
   });
 });
@@ -5598,7 +5648,7 @@ $('#delForm').addEventListener('submit', (e) => {
       await api('DELETE', '/v1/me', { password: f.password.value });
       endSession();
       closeAccount();
-      toast('Your account was deleted. What’s saved on this device stays here.', 5000);
+      toast('Account deleted.', 5000);
     } catch (ex) { showErr(err, ex.message); }
   });
 });
@@ -5606,7 +5656,7 @@ $('#acctSignOut').onclick = () => {
   const token = session && session.token;
   endSession();
   closeAccount();
-  toast('Signed out. What’s saved on this device stays here.', 4000);
+  toast('Signed out.', 4000);
   if (token) fetch(ACCOUNTS_API + '/v1/auth/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } }).catch(() => {});
 };
 document.addEventListener('visibilitychange', () => {
@@ -5799,7 +5849,7 @@ function tripCard(p, friend = false) {
   const live = liveForTrip(p);
   const when = dayWord(p.from.at, p.from.tz);
   const status = live ? `<span class="mt-status">${esc(liveLeg(live, p))}</span>`
-    : p.from.at > Date.now() ? '<span class="mt-note">Scheduled. Live times appear once the train is running.</span>'
+    : p.from.at > Date.now() ? '<span class="mt-note">Scheduled. Live once running.</span>'
     : '<span class="mt-note">Not in the live feed.</span>';
   return `<div class="mt-card${live ? ' is-live sig-' + live.sig : ''}">`
     + `<button type="button" class="mt-main" data-${friend ? 'ftrip' : 'trip'}="${esc(p.id)}"><span class="mt-when">${friend ? `<span class="mt-who">@${esc(p.username)}</span> · ` : ''}${esc(when)}</span>`
@@ -5823,17 +5873,17 @@ function renderMyTrips() {
   $('#mtSec').hidden = !ACCOUNTS_API;
   if (!session) {
     $('#mtCount').textContent = '';
-    el.innerHTML = '<p class="hint">Save the trains you’re taking, today or months ahead, and follow them here once they’re running. <button type="button" class="text-btn" id="mtSignIn">Sign in to save trips</button></p>';
+    el.innerHTML = '<p class="hint">Save trips here and follow them once running. <button type="button" class="text-btn" id="mtSignIn">Sign in to save trips</button></p>';
     return;
   }
   const ahead = myTrips.filter((p) => !tripDone(p)), past = myTrips.filter(tripDone).reverse();
   $('#mtCount').textContent = ahead.length ? plural(ahead.length, 'trip') : '';
   el.innerHTML = (ahead.length ? `<div class="mt-list">${ahead.map((p) => tripCard(p)).join('')}</div>`
-    : '<p class="hint">No trips yet. Plan one below, or open a running train and choose Add to trips.</p>')
+    : '<p class="hint">No trips yet. Plan one below or add from a train.</p>')
     + (past.length ? `<details class="mt-past"><summary>Past trips (${past.length})</summary><div class="mt-list">${past.map((p) => tripCard(p)).join('')}</div></details>` : '');
 }
 $('#mtList').addEventListener('click', async (e) => {
-  if (e.target.closest('#mtSignIn')) { openAccount('auth', 'Sign in to save trips. Your saved trains, stations and settings will follow you too.'); return; }
+  if (e.target.closest('#mtSignIn')) { openAccount('auth', 'Sign in to save trips.'); return; }
   const x = e.target.closest('[data-trip-x]');
   if (x) {
     const p = myTrips.find((q) => q.id === x.dataset.tripX);
@@ -5849,13 +5899,13 @@ $('#mtList').addEventListener('click', async (e) => {
 /* ---------------- friends: people who see each other's trips ---------------- */
 /* Friends find each other by username, never by email. Asking someone who already asked you makes you friends. */
 const USERNAME_RE = /^[a-z][a-z0-9_]{2,19}$/;
-const USERNAME_RULE = '3 to 20 letters, numbers or underscores, starting with a letter.';
+const USERNAME_RULE = '3 to 20 letters, numbers or _.';
 const normUsername = (n) => String(n || '').trim().replace(/^@/, '').toLowerCase();
 const NO_PEOPLE = { friends: [], incoming: [], outgoing: [] };
 let people = NO_PEOPLE;
 let friendTrips = session ? store.get('friendTripsCache', []) : [];
 
-const PHONE_RULE = 'Enter the phone number with its area code. Outside the US and Canada, start with + and the country code.';
+const PHONE_RULE = 'Enter a number with area code. Outside the US and Canada, start with +.';
 /* A phone number as E.164 (+15551234567), or null. Ten digits, or eleven starting with 1, are US and Canada numbers;
    others need + and their country code, or 00 or 011 as dialled from abroad. Extensions are dropped. */
 function normPhone(raw) {
@@ -5892,8 +5942,8 @@ function openProfilePrompt({ lede, then } = {}) {
   $('#promptUserRow').hidden = !!session.username;
   $('#promptPhoneRow').hidden = !!session.phone;
   $('#promptLede').textContent = lede || (session.username
-    ? 'Add your phone number so friends who have it in their contacts can find you on Trackside.'
-    : 'Choose a username so friends can add you, and add your number so friends who have it can find you.');
+    ? 'Add a number so friends can find you.'
+    : 'Choose a username so friends can add you. Add a number too.');
   store.set('profileAsked', session.email);
 }
 function finishPrompt() {
@@ -5914,12 +5964,12 @@ $('#promptForm').addEventListener('submit', (e) => {
     change.phone = normPhone(raw);
     if (!change.phone) { showErr(err, PHONE_RULE); return; }
   }
-  if (!name && !raw) { showErr(err, $('#promptUserRow').hidden ? 'Enter your phone number, or choose Skip for now.' : 'Choose a username, or choose Skip for now.'); return; }
+  if (!name && !raw) { showErr(err, $('#promptUserRow').hidden ? 'Enter a number, or skip.' : 'Choose a username, or skip.'); return; }
   busy($('button[type=submit]', f), async () => {
     try {
       await saveProfile(change);
       finishPrompt();
-      toast(`Saved. Friends can find you as @${session.username}${session.phone ? ' or by your number' : ''}.`, 4500);
+      toast(`Saved.`, 4500);
     } catch (ex) { showErr(err, ex.message); }
   });
 });
@@ -5982,16 +6032,16 @@ function renderFriendTrips() {
   }
   if (!session) {
     $('#frCount').textContent = '';
-    el.innerHTML = '<p class="hint">See which trains your friends are taking, and follow them live. <button type="button" class="text-btn" id="frSignIn">Sign in to add friends</button></p>';
+    el.innerHTML = '<p class="hint">See friends’ trains live. <button type="button" class="text-btn" id="frSignIn">Sign in to add friends</button></p>';
     return;
   }
   const ahead = friendTrips.filter((p) => !tripDone(p));
   $('#frCount').textContent = ahead.length ? plural(ahead.length, 'trip') : '';
   el.innerHTML = ahead.length ? `<div class="mt-list">${ahead.map((p) => tripCard(p, true)).join('')}</div>`
-    : `<p class="hint">${people.friends.length ? 'None of your friends have trips coming up.' : 'Add friends to see the trains they’re taking.'}</p>`;
+    : `<p class="hint">${people.friends.length ? 'No friends’ trips coming up.' : 'Add friends to see their trips.'}</p>`;
 }
 $('#frList').addEventListener('click', (e) => {
-  if (e.target.closest('#frSignIn')) { openAccount('auth', 'Sign in to add friends and see their trips.'); return; }
+  if (e.target.closest('#frSignIn')) { openAccount('auth', 'Sign in to add friends.'); return; }
   const b = e.target.closest('[data-ftrip]');
   const p = b && friendTrips.find((q) => q.id === b.dataset.ftrip);
   if (p) showTripTrain(p);
@@ -6004,10 +6054,10 @@ function renderFriendsDialog() {
   $('#frMe').textContent = '@' + session.username;
   const tripsOf = (n) => friendTrips.filter((p) => p.username === n && !tripDone(p)).length;
   const at = (n) => '@' + esc(n);
-  const html = frGroup(`Requests for you (${people.incoming.length})`, people.incoming, (x) => frRow(at(x.username), 'Wants to share trips with you', frAct('accept', x.username, 'Accept', 'btn primary') + frAct('decline', x.username, 'Decline')))
+  const html = frGroup(`Requests for you (${people.incoming.length})`, people.incoming, (x) => frRow(at(x.username), 'Wants to share trips', frAct('accept', x.username, 'Accept', 'btn primary') + frAct('decline', x.username, 'Decline')))
     + frGroup(`Your friends (${people.friends.length})`, people.friends, (x) => { const k = tripsOf(x.username); return frRow(at(x.username), k ? plural(k, 'trip') + ' coming up' : '', frAct('remove', x.username, 'Remove')); })
     + frGroup('Requests you sent', people.outgoing, (x) => frRow(at(x.username), 'Waiting for them to accept', frAct('cancel', x.username, 'Cancel')));
-  $('#frPeople').innerHTML = html || `<p class="hint">No friends yet. Add them by username or phone number${nativeContacts ? ', or find them in your contacts' : ''}. Friends can add you as @${esc(session.username)}.</p>`;
+  $('#frPeople').innerHTML = html || `<p class="hint">No friends yet. Add by username or number${nativeContacts ? ' or contacts' : ''}.</p>`;
   renderFound();
 }
 
@@ -6021,7 +6071,7 @@ function renderFound() {
     ? frGroup(`In your contacts (${found.length})`, found, (m) => frRow(esc(m.name || '@' + m.username), m.name ? '@' + esc(m.username) : '',
       has(people.friends, m.username) ? '<small>Friends</small>' : has(people.outgoing, m.username) ? '<small>Requested</small>'
         : has(people.incoming, m.username) ? frAct('accept', m.username, 'Accept', 'btn primary') : frAct('add', m.username, 'Add', 'btn primary')))
-    : '<p class="hint">None of your contacts have added their number to Trackside yet. Ask them for their username instead.</p>';
+    : '<p class="hint">None of your contacts are on Trackside yet.</p>';
 }
 async function findInContacts() {
   const f = $('#frAddForm'), err = $('.acct-err', f);
@@ -6029,7 +6079,7 @@ async function findInContacts() {
   showErr($('.acct-ok', f), '');
   const perm = await nativeContacts.requestPermissions().catch(() => ({ contacts: 'denied' }));
   if (perm.contacts !== 'granted' && perm.contacts !== 'limited') {
-    showErr(err, 'Trackside can’t see your contacts. To find friends there, allow Contacts for Trackside in your phone’s Settings.');
+    showErr(err, 'Allow Contacts for Trackside in Settings.');
     return;
   }
   try {
@@ -6054,12 +6104,12 @@ async function findInContacts() {
 
 let frOpener = null;
 async function openFriends() {
-  if (!session) { openAccount('auth', 'Sign in to add friends and see their trips.'); return; }
+  if (!session) { openAccount('auth', 'Sign in to add friends.'); return; }
   if (session.username === undefined) {   // a session saved before usernames: ask the account
     try { setSession(session.token, (await api('GET', '/v1/me')).user); } catch (ex) { toast(ex.message, 5000); return; }
   }
   if (!session.username) {
-    openProfilePrompt({ lede: 'Choose a username first, so friends can tell who’s asking. Add your number too, so friends who have it can find you.', then: openFriends });
+    openProfilePrompt({ lede: 'Choose a username first.', then: openFriends });
     return;
   }
   frOpener = document.activeElement;
@@ -6092,12 +6142,12 @@ $('#frAddForm').addEventListener('submit', (e) => {
   const byPhone = /^[+\d\s().-]+$/.test(raw) && raw.replace(/\D/g, '').length >= 7;
   const phone = byPhone && normPhone(raw), name = byPhone ? '' : normUsername(raw);
   if (byPhone && !phone) { showErr(err, PHONE_RULE); return; }
-  if (!byPhone && !name) { showErr(err, 'Enter your friend’s username or phone number.'); return; }
+  if (!byPhone && !name) { showErr(err, 'Enter a username or number.'); return; }
   busy($('button[type=submit]', f), async () => {
     try {
       const r = await api('POST', '/v1/me/friends', phone ? { phoneHash: await sha256hex(phone) } : { username: name });
       f.reset();
-      showErr(ok, r.status === 'accepted' ? `You and @${r.username} are friends. You can see each other’s trips.` : `Request sent to @${r.username}. Once they accept, you’ll see each other’s trips.`);
+      showErr(ok, r.status === 'accepted' ? `You and @${r.username} are friends.` : `Request sent to @${r.username}.`);
       await loadFriends();
     } catch (ex) { showErr(err, ex.message); }
   });
@@ -6154,12 +6204,12 @@ async function openPlan() {
     await loadTimetables();
     if (!$('#ttStations').options.length) $('#ttStations').innerHTML = tt.stations.map((s) => `<option value="${esc(s.label)}"></option>`).join('');
   } catch {
-    showErr($('#planForm .acct-err'), 'The timetables didn’t load. Check your connection and try again.');
+    showErr($('#planForm .acct-err'), 'Timetables didn’t load. Try again.');
   }
 }
 /* From a live train's page: just choose where to get on and off. */
 function openPlanPick(run) {
-  if (!session) { openAccount('auth', 'Sign in to save trips. Your saved trains, stations and settings will follow you too.'); return; }
+  if (!session) { openAccount('auth', 'Sign in to save trips.'); return; }
   closePops();
   $('#plan').hidden = false;
   $('#planTitle').textContent = 'Add to your trips';
@@ -6205,7 +6255,7 @@ $('#planForm').addEventListener('submit', async (e) => {
   const err = $('#planForm .acct-err');
   showErr(err, '');
   $('#planOut').innerHTML = '';
-  try { await loadTimetables(); } catch { showErr(err, 'The timetables didn’t load. Check your connection and try again.'); return; }
+  try { await loadTimetables(); } catch { showErr(err, 'Timetables didn’t load. Try again.'); return; }
   const date = $('#planDate').value;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { showErr(err, 'Pick a date.'); return; }
   const n = date.replace(/-/g, '');
@@ -6222,8 +6272,8 @@ $('#planForm').addEventListener('submit', async (e) => {
     return;
   }
   const from = findStation($('#planFrom').value), to = findStation($('#planTo').value);
-  if (!from || !to) { showErr(err, `Pick ${!from ? 'where you’re leaving from' : 'where you’re going'} from the list of stations.`); return; }
-  if (from.a !== to.a) { showErr(err, `${from.name} is a ${from.a.label} station and ${to.name} is ${to.a.label}. Trackside plans trips on a single train, so pick two stations on one railroad.`); return; }
+  if (!from || !to) { showErr(err, `Pick ${!from ? 'a start' : 'an end'} station from the list.`); return; }
+  if (from.a !== to.a) { showErr(err, `Stations must be on one railroad.`); return; }
   if (from === to) { showErr(err, 'Pick two different stations.'); return; }
   planHits = runsBetween(from, to, n);
   planRuns = planHits.map((h) => h.run);
@@ -6236,7 +6286,7 @@ $$('input[name="planMode"]').forEach((r) => r.addEventListener('change', () => {
 $('#planOut').addEventListener('click', async (e) => {
   const add = e.target.closest('[data-add]'), pick = e.target.closest('[data-pp-add]');
   if (!add && !pick) return;
-  if (!session) { openAccount('auth', 'Sign in to save trips. Your saved trains, stations and settings will follow you too.'); return; }
+  if (!session) { openAccount('auth', 'Sign in to save trips.'); return; }
   let trip, btn, err = null;
   if (add) {
     btn = add;
@@ -6247,7 +6297,7 @@ $('#planOut').addEventListener('click', async (e) => {
     const box = pick.closest('.plan-pick'), run = planRuns[+box.dataset.k];
     err = $('.acct-err', box);
     const i = +$('[data-pp="from"]', box).value, j = +$('[data-pp="to"]', box).value;
-    if (j <= i) { showErr(err, 'Pick a stop after the one where you get on.'); return; }
+    if (j <= i) { showErr(err, 'Pick a stop after your start.'); return; }
     trip = tripFrom(run, i, j);
   }
   btn.disabled = true;
@@ -6298,8 +6348,8 @@ function resolveHash() {
     const id = h.slice(2);
     if (byId.has(id)) { openTrain(id, { pan: true, zoomIn: true }); return; }
     const alt = liveFor(id.split('-')[0])[0];
-    if (alt) { openTrain(alt.id, { pan: true, zoomIn: true }); toast(`That link was for an earlier run of train ${alt.num}. Showing the one in the feed now.`); }
-    else toast(`Train ${id.split('-')[0]} isn't in the live feed right now.`);
+    if (alt) { openTrain(alt.id, { pan: true, zoomIn: true }); toast(`Showing train ${alt.num}’s current run.`); }
+    else toast(`Train ${id.split('-')[0]} isn’t in the live feed.`);
   } else if (h.startsWith('s-')) {
     if (!stationsLoaded) return;
     pendingHash = null;
@@ -6384,7 +6434,7 @@ function ingest(json) {
 
   const s = topScreen();
   if (s && s.type === 'train' && !byId.has(s.id)) {
-    toast(`Train ${s.id.split('-')[0]} finished its run or left the live feed.`);
+    toast(`Train ${s.id.split('-')[0]} has finished.`);
     nav.pop();
     showScreen({ restore: true });
   }
@@ -6482,7 +6532,7 @@ function showError(err) {
   if (!err) { box.innerHTML = ''; return; }
   box.innerHTML = `<div class="error-box"><strong>${lastOk ? 'Live updates paused' : 'Live train data didn’t load'}</strong>`
     + `The Amtraker API didn't respond (${esc(err.message || 'network error')}). The page tries again every minute. `
-    + `If you're viewing this inside an app preview that blocks outside requests, open it directly in Chrome, Safari, Firefox or Edge.</div>`;
+    + `Open it directly in a browser.</div>`;
 }
 /* Commuter railroads, shaped like Amtraker's trains. Never throws: Amtrak still loads if the worker is down. */
 let feedTrains = {}, feedTrainsAt = 0;
