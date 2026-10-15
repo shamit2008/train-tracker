@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- The sign-up bot check for the iOS and Android apps. Turnstile only runs on a real web address, and the apps load
+     their page from capacitor://localhost or https://localhost, so they show this page from the website in a frame.
+     It renders the check and hands the token to the app with postMessage. The site key comes in ?k=. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Trackside check</title>
+<style>html, body { margin: 0; background: transparent; overflow: hidden; }</style>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=ready" async defer></script>
+</head>
+<body>
+<div id="box"></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const send = (token) => window.parent.postMessage({ type: 'trackside-turnstile', token }, '*');
+  function ready() {
+    turnstile.render('#box', {
+      sitekey: q.get('k') || '',
+      theme: q.get('theme') === 'dark' ? 'dark' : q.get('theme') === 'light' ? 'light' : 'auto',
+      size: 'flexible',
+      callback: send,
+      'expired-callback': () => send(''),
+      'error-callback': () => send(''),
+    });
+  }
+</script>
+</body>
+</html>
