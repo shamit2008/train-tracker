@@ -158,6 +158,12 @@ export default {
     }
     if (isAccountsPath(url.pathname)) return handleAccounts(req, env, ctx, url);
     if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 });
+    // per address, per Cloudflare location (wrangler.toml [[ratelimits]]). It spares the railroads' feeds and the
+    // worker's CPU from one script hammering; the blocked request still counts toward the worker's daily requests.
+    if (env.FEEDS_LIMIT && (url.pathname === '/v1/trains' || url.pathname === '/v1/stations')) {
+      const { success } = await env.FEEDS_LIMIT.limit({ key: req.headers.get('CF-Connecting-IP') || 'local' });
+      if (!success) return json({ error: { code: 'rate_limited', message: 'Too many requests. Try again in a minute.' } }, req, env, { 'Retry-After': '60', 'Cache-Control': 'no-store' }, 429);
+    }
 
     if (url.pathname === '/v1/stations') {
       return json(stationList(), req, env, { 'Cache-Control': 'public, max-age=86400' });

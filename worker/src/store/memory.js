@@ -13,6 +13,7 @@ export class MemoryStore {
     this.trips = new Map();      // id -> trip
     this.resets = new Map();     // tokenHash -> reset token
     this.friendships = [];       // [{ requesterId, addresseeId, status, createdAt, acceptedAt }]
+    this.pending = new Map();    // email -> pending sign-up
   }
 
   async createUser(u) {
@@ -111,6 +112,12 @@ export class MemoryStore {
       .sort((a, b) => a.departAt - b.departAt)
       .map((t) => ({ ...t, username: (this.users.get(t.userId) || {}).username || null })));
   }
+
+  async putPendingSignup(p) { this.pending.set(p.email, { ...copy(p), username: p.username || null, attempts: 0 }); }
+  async getPendingSignup(email) { return copy(this.pending.get(email) || null); }
+  async addPendingAttempt(email) { const p = this.pending.get(email); if (p) p.attempts++; }
+  async deletePendingSignup(email) { this.pending.delete(email); }
+  async deletePendingSignupsBefore(time) { for (const [k, p] of this.pending) if (p.expiresAt < time) this.pending.delete(k); }
 
   async createResetToken(r) { this.resets.set(r.tokenHash, { ...r }); }
   async getResetToken(tokenHash) { return copy(this.resets.get(tokenHash) || null); }

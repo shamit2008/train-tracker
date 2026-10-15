@@ -17,7 +17,7 @@ const dir = path.dirname(fileURLToPath(import.meta.url));
 const KEYS = ['METROLINK_API_KEY', 'CALTRAIN_511_KEY'];
 // stored when ../.env has them: Metra's key (Metra is left out without it), NJ Transit's sign-in, the email service for password reset,
 // and Turso if accounts move there
-const OPTIONAL = ['METRA_API_KEY', 'NJT_USERNAME', 'NJT_PASSWORD', 'RESEND_API_KEY', 'BREVO_API_KEY', 'TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN'];
+const OPTIONAL = ['METRA_API_KEY', 'NJT_USERNAME', 'NJT_PASSWORD', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SID', 'TURNSTILE_SECRET_KEY', 'RESEND_API_KEY', 'BREVO_API_KEY', 'TURSO_DATABASE_URL', 'TURSO_AUTH_TOKEN'];
 
 const env = {};
 try {
@@ -76,7 +76,8 @@ for (const k of [...KEYS, ...OPTIONAL.filter((x) => env[x])]) {
 if (!url) { console.log('\nDeployed, but I could not read the worker URL from wrangler. Put it in FEEDS_WORKER in index.html.'); process.exit(0); }
 const page = path.join(dir, '..', 'index.html');
 const html = await readFile(page, 'utf8');
-const next = html.replace(/const FEEDS_WORKER = '[^']*';/, `const FEEDS_WORKER = '${url}';`);
+const next = html.replace(/const FEEDS_WORKER = '[^']*';/, `const FEEDS_WORKER = '${url}';`)
+  .replace(/(connect-src[^"]*?)https:\/\/[\w.-]+\.workers\.dev/, `$1${url}`);   // the page's security policy must allow it too
 if (next !== html) { await writeFile(page, next); console.log(`\nindex.html now reads the commuter railroads from ${url}`); }
 else console.log(`\nWorker is live at ${url} (index.html already points there).`);
 console.log('Publish the site as usual (git push, or node deploy.mjs) to turn them on for everyone.');

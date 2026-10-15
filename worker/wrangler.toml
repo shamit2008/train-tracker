@@ -6,10 +6,9 @@ compatibility_date = "2026-09-01"
 workers_dev = true
 
 [vars]
-# Pages allowed to read the feeds from a browser. localhost is always allowed, for local testing;
-# "null" is what Chrome sends for a page opened as a file. The apps (../app) load the page from
-# capacitor://localhost on iOS and https://localhost on Android.
-ALLOWED_ORIGINS = "https://sm3625.github.io,capacitor://localhost,https://localhost,null"
+# Pages allowed to read the feeds from a browser. The apps (../app) load the page from capacitor://localhost on iOS
+# and https://localhost on Android. Pages opened from disk or http://localhost are allowed only by the dev server.
+ALLOWED_ORIGINS = "https://sm3625.github.io,capacitor://localhost,https://localhost"
 
 # Where accounts are stored: "d1" (Cloudflare D1, set up by `npm run deploy`), "turso" (needs the secrets
 # TURSO_DATABASE_URL and TURSO_AUTH_TOKEN) or "memory" (testing only: lost on restart). See README.md.
@@ -17,10 +16,27 @@ ACCOUNTS_DB = "d1"
 
 # Password-reset emails link here.
 SITE_URL = "https://sm3625.github.io/train-tracker/"
-# The email service for reset links: "resend" or "brevo", with its key as a Worker secret (RESEND_API_KEY or
-# BREVO_API_KEY, uploaded by `npm run deploy` from ../.env). Left empty, password reset is switched off.
-MAIL_PROVIDER = "brevo"
+# The email service for reset links and sign-up codes: "resend" or "brevo", with its key as a Worker secret
+# (RESEND_API_KEY or BREVO_API_KEY, uploaded by `npm run deploy` from ../.env). Left empty, as now, no email is sent:
+# password reset is off and sign-up makes accounts without a code. Turning it on also needs RESET_ON in index.html.
+MAIL_PROVIDER = ""
+# Texting the codes that prove a phone number is yours: "twilio" (Twilio Verify, with TWILIO_ACCOUNT_SID,
+# TWILIO_AUTH_TOKEN and TWILIO_VERIFY_SID as Worker secrets from ../.env). Left empty, as now, numbers are saved
+# without a code, so anyone could claim any US or Canada number.
+SMS_PROVIDER = ""
 MAIL_FROM = "Trackside <noreply@example.com>"
+# Sign-up emails a 6-digit code whenever email can be sent (the provider's key set, MAIL_FROM a real sender), so
+# signing up never reveals which emails have accounts. Set EMAIL_VERIFY = "off" to make accounts without a code.
+
+# Feed requests (/v1/trains, /v1/stations) per address per minute, counted by each Cloudflare location. An open page
+# asks about once a minute, so 120 leaves room for many people sharing one address (a phone network, a campus).
+# namespace_id is any number unique among this Cloudflare account's rate limiters.
+[[ratelimits]]
+name = "FEEDS_LIMIT"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 120
+  period = 60
 
 [[d1_databases]]
 binding = "DB"

@@ -37,6 +37,12 @@
      listFriendships(userId) -> [friendship + { otherId, otherUsername }]   oldest first
      listFriendTrips(userId, since) -> [trip + { username }]  accepted friends' trips leaving at or after since, soonest first
 
+     putPendingSignup({ email, username, passwordHash, codeHash, createdAt, expiresAt })   replaces any for that email
+     getPendingSignup(email) -> { …, attempts } | null        a sign-up waiting for its emailed code
+     addPendingAttempt(email)                                 counts a wrong code
+     deletePendingSignup(email)
+     deletePendingSignupsBefore(time)
+
      createResetToken({ tokenHash, userId, createdAt, expiresAt })
      getResetToken(tokenHash) -> { tokenHash, userId, createdAt, expiresAt } | null
      deleteResetTokensForUser(userId)                         a link works once: using one cancels them all

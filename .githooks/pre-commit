@@ -15,7 +15,8 @@ fi
 [ -f "$root/.env" ] || exit 0
 staged=$(git diff --cached -U0 --no-color | grep '^+' | grep -v '^+++')
 [ -n "$staged" ] || exit 0
-for name in METROLINK_API_KEY CALTRAIN_511_KEY METRA_API_KEY GITHUB_TOKEN TURSO_AUTH_TOKEN RESEND_API_KEY BREVO_API_KEY; do
+for name in METROLINK_API_KEY CALTRAIN_511_KEY METRA_API_KEY GITHUB_TOKEN TURSO_AUTH_TOKEN RESEND_API_KEY BREVO_API_KEY \
+    NJT_PASSWORD TURNSTILE_SECRET_KEY TWILIO_AUTH_TOKEN; do
   value=$(sed -n "s/^[[:space:]]*$name[[:space:]]*=[[:space:]]*//p" "$root/.env" | tail -n 1 | sed "s/^['\"]//; s/['\"][[:space:]]*\$//; s/[[:space:]]*\$//")
   [ ${#value} -ge 8 ] || continue
   if printf '%s\n' "$staged" | grep -qF -- "$value"; then

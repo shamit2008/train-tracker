@@ -1,7 +1,12 @@
 /* Trackside accounts: sign up with an email and password, then sync saved trains, stations and settings
    between devices. Storage goes through ./store, so this file never knows which database is behind it.
 
-   POST   /v1/auth/signup     { email, password, username? } -> 201 { token, user }
+   POST   /v1/auth/signup     { email, password, username?, turnstileToken? } -> 201 { token, user }, or, with email
+                                                              verification on, 202 { pending: true } and a code emailed
+   POST   /v1/auth/signup/confirm  { email, code }           -> 201 { token, user }  (makes the account)
+
+   Email verification is on whenever email can be sent (mail.js) and EMAIL_VERIFY isn't "off". Then sign-up answers
+   the same whether or not the email has an account: a new one gets a code, an existing one a note to sign in.
    POST   /v1/auth/login      { email, password }            -> { token, user }
    POST   /v1/auth/logout                                     -> 204
    POST   /v1/auth/reset      { email }                      -> 202              (emails a reset link if there's an account)
@@ -14,7 +19,10 @@
    GET    /v1/me/trips                                        -> { trips }        (soonest first)
    POST   /v1/me/trips        { provider, num, date, route, from, to }  -> 201 { trip }
    DELETE /v1/me/trips/:id                                    -> 204
-   PUT    /v1/me/profile      { username?, phone? }          -> { user }         (phone: E.164, or null to remove it)
+   PUT    /v1/me/profile      { username?, phone: null? }    -> { user }         (phone null removes the number)
+   POST   /v1/me/phone        { phone }                      -> 202              (texts a code to the number, E.164)
+                                                              -> { user }         (no texting service: saved without a code)
+   POST   /v1/me/phone/verify { phone, code }                -> { user }         (the code right: the number is the account's)
    GET    /v1/me/friends                                      -> { friends, incoming, outgoing }   ([{ username, at }])
    POST   /v1/me/friends      { username } or { phoneHash }  -> { status, username }   ('pending', or 'accepted' when they'd asked you)
    POST   /v1/me/friends/match  { phoneHashes }              -> { matches }      (who from a phone's contacts is on Trackside)
@@ -35,6 +43,8 @@
    Errors are { error: { code, message } }, with a message fit to show people. */
 import { storeFor, StoreError } from './store/index.js';
 import { mailerFor } from './mail.js';
+import { verifierFor } from './sms.js';
+import { checkHuman } from './turnstile.js';
 import { json, corsHeaders } from './http.js';
 import { PROVIDERS as FEED_PROVIDERS } from './agencies.js';
 
@@ -47,20 +57,28 @@ const DATA_MAX_KEYS = 30, DATA_MAX_VALUE = 16 * 1024, BODY_MAX = 64 * 1024;
 const LIMITS = {
   loginEmail: [10, 15 * 60000],   // failed sign-ins per email: slows password guessing against one account
   loginIp: [50, 15 * 60000],      // failed sign-ins per address: slows guessing across many accounts
-  signupIp: [10, 3600000],        // new accounts per address per hour
+  signupIp: [10, 3600000],        // new accounts per address per hour, without a bot check
+  signupIpHuman: [200, 3600000],  // with one (turnstile.js): enough for a phone network or campus behind one address
   resetEmail: [3, 3600000],       // reset emails per account per hour
   resetIp: [10, 3600000],         // reset requests per address per hour
+  signupEmail: [3, 3600000],      // sign-up emails per address per hour (verification on)
+  confirmIp: [30, 15 * 60000],    // wrong sign-up codes per address
   friendRequest: [30, 3600000],   // new friend requests per account per hour
   phoneLookup: [30, 3600000],     // lookups by number per account per hour: slows working out who has which number
+  contactsDaily: [10, 86400000],  // contacts lookups (up to 2000 numbers each) per account per day
+  smsAccount: [5, 3600000],       // codes texted per account per hour
+  smsNumber: [5, 3600000],        // codes texted to one number per hour, whoever asks
+  smsCheck: [10, 15 * 60000],     // wrong codes per account
 };
 const RESET_MS = 30 * 60000;
+const CODE_MS = 15 * 60000, CODE_TRIES = 5;   // a sign-up code lasts 15 minutes and allows 5 wrong tries
 const PROVIDERS = ['Amtrak', 'Via', 'Brightline', ...FEED_PROVIDERS];   // Amtraker's, then the feeds worker's
 const TRIPS_MAX = 200;
 const USERNAME = /^[a-z][a-z0-9_]{2,19}$/;
 const FRIENDS_MAX = 200;   // friends and requests, together
 const FRIEND_TRIPS_BACK = 4 * 86400000;   // the longest runs take about three days; older trips are surely over
 const TRIP_DONE_MS = 6 * 3600000;         // a trip counts as over this long after its scheduled arrival, as on the site
-const PHONE = /^\+[1-9]\d{7,14}$/;          // E.164
+const PHONE = /^\+1\d{10}$/;                // US and Canada only: texts elsewhere cost more, and invite SMS fraud
 const HASH = /^[0-9a-f]{64}$/;
 const MATCH_MAX = 2000;                     // numbers per contacts lookup; the app sends a big address book in parts
 
@@ -114,6 +132,11 @@ async function body(req, max = BODY_MAX) {
 }
 const publicUser = (u) => ({ id: u.id, email: u.email, username: u.username || null, phone: u.phone || null, createdAt: u.createdAt });
 const phoneHash = async (phone) => hex(await crypto.subtle.digest('SHA-256', enc.encode(phone)));
+function checkPhone(p) {
+  const number = String(p || '').trim();
+  if (!PHONE.test(number)) throw new ApiError(400, 'bad_phone', 'Only US and Canada numbers work for now.');
+  return number;
+}
 const normUsername = (n) => String(n || '').trim().replace(/^@/, '').toLowerCase();
 function checkUsername(name) {
   if (!USERNAME.test(name)) throw new ApiError(400, 'bad_username', 'Usernames are 3 to 20 letters, numbers or underscores, starting with a letter.');
@@ -176,6 +199,21 @@ function checkTrip(b, now) {
 const publicTrip = (t) => ({ id: t.id, provider: t.provider, num: t.num, date: t.date, route: t.data.route, from: t.data.from, to: t.data.to, createdAt: t.createdAt });
 
 /* ---------------- password reset ---------------- */
+const codeMail = (to, code) => ({
+  to,
+  subject: `${code} is your Trackside code`,
+  text: `Your Trackside sign-up code is ${code}. It works for 15 minutes.\n\nIf you didn’t sign up, ignore this email.`,
+  html: `<p>Your Trackside sign-up code is <b style="font-size:20px;letter-spacing:2px">${code}</b>. It works for 15 minutes.</p><p>If you didn’t sign up, ignore this email.</p>`,
+});
+const alreadyMail = (env, to) => ({
+  to,
+  subject: 'You already have a Trackside account',
+  text: `Someone tried to sign up for Trackside with ${to}, which already has an account. Sign in at ${env.SITE_URL}, `
+    + 'or reset your password there if you’ve forgotten it.\n\nIf that wasn’t you, ignore this email.',
+  html: `<p>Someone tried to sign up for Trackside with <b>${escapeHtml(to)}</b>, which already has an account. `
+    + `<a href="${escapeHtml(env.SITE_URL)}">Sign in</a>, or reset your password there if you’ve forgotten it.</p><p>If that wasn’t you, ignore this email.</p>`,
+});
+
 async function sendReset(store, mailer, env, user, now) {
   await store.deleteResetTokensForUser(user.id);   // only the newest link works
   const token = newToken();
@@ -214,13 +252,60 @@ export async function handleAccounts(req, env, ctx, url) {
       const username = b.username == null || b.username === '' ? null : normUsername(b.username);
       if (username) checkUsername(username);
       checkPassword(b.password);
-      await limit(store, 'signup-ip:' + ip, LIMITS.signupIp, now);
+      const human = await checkHuman(env, b.turnstileToken, ip);
+      if (human === false) throw new ApiError(403, 'not_human', 'Couldn’t confirm you’re a person. Try again.');
+      await limit(store, 'signup-ip:' + ip, human ? LIMITS.signupIpHuman : LIMITS.signupIp, now);
       await store.addAttempt('signup-ip:' + ip, now);
+      const mailer = env.EMAIL_VERIFY !== 'off' && env.SITE_URL ? mailerFor(env) : null;
+      if (mailer) {
+        if (username && await store.getUserByUsername(username)) throw usernameTaken();   // usernames are public anyway
+        await limit(store, 'signup-email:' + email, LIMITS.signupEmail, now);
+        await store.addAttempt('signup-email:' + email, now);
+        // the same work and the same answer whether or not there's an account, so the answer can't tell
+        const passwordHash = await hashPassword(b.password, iterationsFor(env));
+        const existing = await store.getUserByEmail(email);
+        let mail;
+        if (existing) mail = alreadyMail(env, email);
+        else {
+          const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+          await store.putPendingSignup({ email, username, passwordHash, codeHash: await tokenHash(email + ':' + code), createdAt: now, expiresAt: now + CODE_MS });
+          mail = codeMail(email, code);
+        }
+        ctx.waitUntil(mailer.send(mail).catch((err) => console.error('sign-up email:', err && err.message)));
+        return json({ pending: true }, req, env, noStore, 202);
+      }
       const user = { id: crypto.randomUUID(), email, username, passwordHash: await hashPassword(b.password, iterationsFor(env)), createdAt: now };
       try { await store.createUser(user); } catch (err) {
         if (err instanceof StoreError && err.code === 'email_taken') throw new ApiError(409, 'email_taken', 'There’s already an account with that email. Sign in instead.');
         if (err instanceof StoreError && err.code === 'username_taken') throw usernameTaken();
         throw err;
+      }
+      housekeeping(store, ctx, now);
+      return json(await startSession(store, user, now), req, env, noStore, 201);
+    }
+    if (route === 'POST /v1/auth/signup/confirm') {
+      const b = await body(req);
+      const email = normEmail(b.email);
+      const code = String(b.code || '').replace(/\s/g, '');
+      const wrong = new ApiError(400, 'bad_code', 'That code is wrong or expired.');
+      await limit(store, 'confirm-ip:' + ip, LIMITS.confirmIp, now);
+      const p = email && /^\d{6}$/.test(code) ? await store.getPendingSignup(email) : null;
+      if (!p || p.expiresAt <= now || p.attempts >= CODE_TRIES) {
+        if (p) await store.deletePendingSignup(email);
+        await store.addAttempt('confirm-ip:' + ip, now);
+        throw wrong;
+      }
+      if (await tokenHash(email + ':' + code) !== p.codeHash) {
+        await Promise.all([store.addPendingAttempt(email), store.addAttempt('confirm-ip:' + ip, now)]);
+        throw wrong;
+      }
+      await store.deletePendingSignup(email);
+      const user = { id: crypto.randomUUID(), email, username: p.username, passwordHash: p.passwordHash, createdAt: now };
+      try { await store.createUser(user); } catch (err) {
+        if (!(err instanceof StoreError)) throw err;
+        if (err.code === 'email_taken') throw wrong;
+        user.username = null;   // taken while the code was on its way: they choose another after signing in
+        await store.createUser(user);
       }
       housekeeping(store, ctx, now);
       return json(await startSession(store, user, now), req, env, noStore, 201);
@@ -344,12 +429,48 @@ export async function handleAccounts(req, env, ctx, url) {
         checkUsername(change.username);
       }
       if (b.phone === null || b.phone === '') change.phone = null;
-      else if (b.phone !== undefined) {
-        const number = String(b.phone).trim();
-        if (!PHONE.test(number)) throw new ApiError(400, 'bad_phone', 'Enter the phone number with its country code, like +1 555 123 4567.');
-        change.phone = { number, hash: await phoneHash(number) };
-      }
+      else if (b.phone !== undefined) throw new ApiError(400, 'verify_phone', 'Verify the number with a code first.');
       try { await store.setProfile(user.id, change); } catch (err) {
+        if (err instanceof StoreError && TAKEN[err.code]) throw TAKEN[err.code]();
+        throw err;
+      }
+      return json({ user: publicUser(await store.getUserById(user.id)) }, req, env, noStore);
+    }
+    if (route === 'POST /v1/me/phone') {
+      const { user } = await signedIn(req, store, now);
+      const sms = verifierFor(env);
+      const number = checkPhone((await body(req)).phone);
+      const [owner] = await store.findByPhoneHashes([await phoneHash(number)]);
+      if (owner && owner.id !== user.id) throw TAKEN.phone_taken();   // before paying for a text
+      await limit(store, 'sms-user:' + user.id, LIMITS.smsAccount, now);
+      if (!sms) {
+        // no texting service (SMS_PROVIDER empty): the number is saved as entered, without proof it's theirs
+        await store.addAttempt('sms-user:' + user.id, now);
+        try { await store.setProfile(user.id, { phone: { number, hash: await phoneHash(number) } }); } catch (err) {
+          if (err instanceof StoreError && TAKEN[err.code]) throw TAKEN[err.code]();
+          throw err;
+        }
+        return json({ user: publicUser(await store.getUserById(user.id)) }, req, env, noStore);
+      }
+      await limit(store, 'sms-phone:' + number, LIMITS.smsNumber, now);
+      await Promise.all([store.addAttempt('sms-user:' + user.id, now), store.addAttempt('sms-phone:' + number, now)]);
+      await sms.start(number);
+      return json({ ok: true }, req, env, noStore, 202);
+    }
+    if (route === 'POST /v1/me/phone/verify') {
+      const { user } = await signedIn(req, store, now);
+      const sms = verifierFor(env);
+      if (!sms) throw new ApiError(503, 'unavailable', 'Phone numbers aren’t set up on this server yet.');
+      const b = await body(req);
+      const number = checkPhone(b.phone);
+      const code = String(b.code || '').replace(/\s/g, '');
+      if (!/^\d{4,10}$/.test(code)) throw new ApiError(400, 'bad_code', 'Enter the code from the text.');
+      await limit(store, 'sms-check:' + user.id, LIMITS.smsCheck, now);
+      if (!(await sms.check(number, code))) {
+        await store.addAttempt('sms-check:' + user.id, now);
+        throw new ApiError(400, 'bad_code', 'That code is wrong or expired.');
+      }
+      try { await store.setProfile(user.id, { phone: { number, hash: await phoneHash(number) } }); } catch (err) {
         if (err instanceof StoreError && TAKEN[err.code]) throw TAKEN[err.code]();
         throw err;
       }
@@ -405,7 +526,8 @@ export async function handleAccounts(req, env, ctx, url) {
         throw new ApiError(400, 'bad_request', `Send up to ${MATCH_MAX} phone hashes at a time.`);
       }
       await limit(store, 'phone-lookup:' + user.id, LIMITS.phoneLookup, now);
-      await store.addAttempt('phone-lookup:' + user.id, now);
+      await limit(store, 'contacts:' + user.id, LIMITS.contactsDaily, now);
+      await Promise.all([store.addAttempt('phone-lookup:' + user.id, now), store.addAttempt('contacts:' + user.id, now)]);
       const found = (await store.findByPhoneHashes([...new Set(hashes)])).filter((m) => m.id !== user.id);
       const rel = new Map((await store.listFriendships(user.id)).map((f) => [f.otherId,
         f.status === 'accepted' ? 'friends' : f.requesterId === user.id ? 'requested' : 'incoming']));
@@ -437,5 +559,5 @@ export async function handleAccounts(req, env, ctx, url) {
 /* Now and then, drop expired sessions and old attempt records, after the response has gone. */
 function housekeeping(store, ctx, now) {
   if (Math.random() > 0.05) return;
-  ctx.waitUntil(Promise.all([store.deleteSessionsBefore(now), store.deleteAttemptsBefore(now - 86400000), store.deleteResetTokensBefore(now)]).catch(() => {}));
+  ctx.waitUntil(Promise.all([store.deleteSessionsBefore(now), store.deleteAttemptsBefore(now - 86400000), store.deleteResetTokensBefore(now), store.deletePendingSignupsBefore(now)]).catch(() => {}));
 }

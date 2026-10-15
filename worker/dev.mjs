@@ -14,9 +14,11 @@ import { sqliteClient } from './local/sqlite-client.mjs';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const env = {
-  ALLOWED_ORIGINS: 'null',
+  ALLOWED_ORIGINS: 'null',   // index.html opened as a file
+  ALLOW_LOCALHOST: 'true',   // or served from http://localhost
   ACCOUNTS_STORE: new SqlStore(sqliteClient(path.join(dir, '.accounts-dev.sqlite'))),
   MAIL_PROVIDER: 'log',
+  SMS_PROVIDER: 'log',   // phone codes are printed here, not texted
   SITE_URL: process.env.SITE_URL || 'http://localhost:8000/',   // where you serve index.html locally
 };
 try {

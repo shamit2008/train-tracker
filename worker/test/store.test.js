@@ -209,6 +209,24 @@ for (const [name, make] of Object.entries(ADAPTERS)) {
     assert.equal((await s.listTrips('u2')).length, 1);
   });
 
+  test(`${name}: pending sign-ups`, async () => {
+    const s = make();
+    const p = { email: 'a@example.com', username: 'ann', passwordHash: 'h', codeHash: 'c1', createdAt: 1, expiresAt: 100 };
+    await s.putPendingSignup(p);
+    assert.deepEqual(await s.getPendingSignup('a@example.com'), { ...p, attempts: 0 });
+    await s.addPendingAttempt('a@example.com');
+    await s.addPendingAttempt('a@example.com');
+    assert.equal((await s.getPendingSignup('a@example.com')).attempts, 2);
+    await s.putPendingSignup({ ...p, codeHash: 'c2', expiresAt: 300 });   // a new request replaces it, tries and all
+    assert.deepEqual(await s.getPendingSignup('a@example.com'), { ...p, codeHash: 'c2', expiresAt: 300, attempts: 0 });
+    await s.putPendingSignup({ ...p, email: 'b@example.com', username: null, expiresAt: 50 });
+    await s.deletePendingSignupsBefore(200);
+    assert.equal(await s.getPendingSignup('b@example.com'), null);
+    assert.ok(await s.getPendingSignup('a@example.com'));
+    await s.deletePendingSignup('a@example.com');
+    assert.equal(await s.getPendingSignup('a@example.com'), null);
+  });
+
   test(`${name}: reset tokens`, async () => {
     const s = make();
     await s.createUser(user(1));

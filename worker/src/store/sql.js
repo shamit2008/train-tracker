@@ -169,6 +169,27 @@ export class SqlStore {
     return rows.map((r) => ({ ...tripRow(r), username: r.friend_username || null }));
   }
 
+  async putPendingSignup(p) {
+    await this.db.run(`INSERT INTO pending_signups (email, username, password_hash, code_hash, attempts, created_at, expires_at)
+      VALUES (?, ?, ?, ?, 0, ?, ?) ON CONFLICT (email) DO UPDATE SET username = excluded.username, password_hash = excluded.password_hash,
+      code_hash = excluded.code_hash, attempts = 0, created_at = excluded.created_at, expires_at = excluded.expires_at`,
+    [p.email, p.username || null, p.passwordHash, p.codeHash, p.createdAt, p.expiresAt]);
+  }
+  async getPendingSignup(email) {
+    const r = (await this.db.all('SELECT * FROM pending_signups WHERE email = ?', [email]))[0];
+    return r ? { email: r.email, username: r.username || null, passwordHash: r.password_hash, codeHash: r.code_hash,
+      attempts: Number(r.attempts), createdAt: Number(r.created_at), expiresAt: Number(r.expires_at) } : null;
+  }
+  async addPendingAttempt(email) {
+    await this.db.run('UPDATE pending_signups SET attempts = attempts + 1 WHERE email = ?', [email]);
+  }
+  async deletePendingSignup(email) {
+    await this.db.run('DELETE FROM pending_signups WHERE email = ?', [email]);
+  }
+  async deletePendingSignupsBefore(time) {
+    await this.db.run('DELETE FROM pending_signups WHERE expires_at < ?', [time]);
+  }
+
   async createResetToken({ tokenHash, userId, createdAt, expiresAt }) {
     await this.db.run('INSERT INTO reset_tokens (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)', [tokenHash, userId, createdAt, expiresAt]);
   }
