@@ -13,7 +13,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
-const SECRET_KEYS = ['METROLINK_API_KEY', 'CALTRAIN_511_KEY'];
+const SECRET_KEYS = ['METROLINK_API_KEY', 'CALTRAIN_511_KEY', 'METRA_API_KEY', 'NJT_PASSWORD', 'TURNSTILE_SECRET_KEY',
+  'TWILIO_AUTH_TOKEN', 'BREVO_API_KEY', 'RESEND_API_KEY', 'TURSO_AUTH_TOKEN'];
 
 async function loadEnv() {
   const env = {};
@@ -40,7 +41,7 @@ if (!token) {
 }
 
 async function api(route, init = {}) {
-  const res = await fetch(`https://api.github.com/repos/${repo}/${route}`, {
+  const res = await fetch(`https://api.github.com/repos/${repo}${route ? '/' + route : ''}`, {   // GitHub 404s a trailing slash
     ...init,
     headers: {
       Authorization: `Bearer ${token}`,
