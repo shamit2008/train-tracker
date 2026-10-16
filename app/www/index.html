@@ -784,6 +784,33 @@ button:disabled { cursor: default; opacity: .5; }
 .mt-past summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
 .mt-past .mt-list { margin-top: 6px; opacity: .8; }
 
+/* train page: your stop, and the enthusiast detail folded away */
+.d-yours { margin: 6px 0 0; padding: 7px 10px 5px; border-left: 3px solid var(--sig); background: var(--paper-2); font-size: 14px; }
+.d-yours b { font-weight: 700; }
+.d-more { border-top: 1px solid var(--rule); padding-top: 10px; }
+.d-more > summary { cursor: pointer; font-size: 14px; font-weight: 700; padding: 6px 0; }
+.d-more[open] > summary { margin-bottom: 10px; }
+
+/* home */
+.hero { display: grid; gap: 8px; padding: 14px 14px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--paper); }
+.hero.is-live { border-color: var(--sig); box-shadow: inset 4px 0 0 var(--sig); }
+.hero-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.hero-title { font-size: 19px; font-weight: 800; line-height: 1.2; }
+.hero-leg { font-size: 14px; }
+.hero-leg small { color: var(--muted); }
+.hero-eta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.hero-eta strong { font-size: 30px; font-weight: 800; line-height: 1; }
+.hero-eta span { font-size: 13.5px; color: var(--muted); }
+.hero-eta .hero-delay { font-weight: 700; color: var(--sig-text); }
+.hero-status { margin: 0; font-size: 14px; }
+.hero-bar { height: 6px; border-radius: 3px; background: var(--paper-3); overflow: hidden; }
+.hero-bar i { display: block; height: 100%; background: var(--sig); }
+.hero-fresh { margin: 0; font-size: 12.5px; color: var(--muted); }
+.hero-fresh.warn { color: var(--late-text); font-weight: 600; }
+.hero-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.hero-acts .btn { flex: 1 1 auto; min-height: 40px; }
+#homeMore h3 { margin-bottom: 8px; }
+
 /* friends */
 #frSec .btn { margin-top: 10px; }
 .mt-who { text-transform: none; letter-spacing: 0; color: var(--ink); }
@@ -992,7 +1019,7 @@ button:disabled { cursor: default; opacity: .5; }
   #detail .detail > * { order: 5; }
   #detail .detail > .d-nav, #detail .detail > .d-peek, #detail .detail > .d-head, #detail .detail > .banner { order: 1; }
   #detail .detail > .d-sum, #detail .detail > #dProg { order: 2; }
-  #detail .detail > .d-actbar, #detail .detail > .d-jump, #detail .detail > .compare { order: 3; }
+  #detail .detail > .d-actbar, #detail .detail > .d-jump, #detail .detail > .compare, #detail .detail > .notices { order: 3; }
   #detail .detail > .tt, #detail .detail > p.note:last-child { order: 4; }
 }
 @media (max-width: 360px) and (min-height: 501px) {
@@ -1093,8 +1120,9 @@ button:disabled { cursor: default; opacity: .5; }
         <div class="sugg" id="sugg" role="listbox" aria-label="Suggestions" hidden></div>
       </div>
       <div class="tabs" id="tabs" role="tablist" aria-label="Choose what to do">
+        <button type="button" role="tab" id="tab-home" data-tab="home" aria-controls="view-home" aria-selected="false" tabindex="-1">Home</button>
         <button type="button" role="tab" id="tab-explore" data-tab="explore" aria-controls="view-explore" aria-selected="true">Explore</button>
-        <button type="button" role="tab" id="tab-track" data-tab="track" aria-controls="view-track" aria-selected="false" tabindex="-1">Track a train</button>
+        <button type="button" role="tab" id="tab-track" data-tab="track" aria-controls="view-track" aria-selected="false" tabindex="-1">Trips</button>
         <button type="button" role="tab" id="tab-stations" data-tab="stations" aria-controls="view-stations" aria-selected="false" tabindex="-1">Stations</button>
       </div>
       <div class="pop settings" id="settings" role="dialog" aria-label="Settings" hidden>
@@ -1118,6 +1146,14 @@ button:disabled { cursor: default; opacity: .5; }
 
     <div class="body" id="body">
       <div id="errorBox"></div>
+
+      <section id="view-home" role="tabpanel" aria-labelledby="tab-home" hidden>
+        <div class="sec"><div id="homeHero"></div></div>
+        <div class="sec" id="homeMore" hidden>
+          <h3>Coming up <small id="homeCount"></small></h3>
+          <div class="mt-list" id="homeList"></div>
+        </div>
+      </section>
 
       <section id="view-explore" role="tabpanel" aria-labelledby="tab-explore">
         <div class="filters" id="filters">
@@ -1887,6 +1923,9 @@ function analyze(raw) {
 const isPre = (t) => /pre/i.test(t.state);
 const isDone = (t) => /complet|termin/i.test(t.state);
 const isStale = (t) => !isNaN(t.posTime) && Date.now() - t.posTime > STALE_MIN * 60000;
+/* How far to trust a train's live data. 'offline': the last refresh failed, so this is the last copy; 'stale': the
+   railroad's last report is old; 'live' otherwise. Only 'live' may be shown as live. */
+const freshness = (t) => (lastError ? 'offline' : isStale(t) ? 'stale' : 'live');
 /* How long the recorded reports have all put this train at its current spot (0 if they show it moving, or too little history). */
 function minutesAtSpot(t) {
   const a = hist.byTrain.get(t.id);
@@ -3632,7 +3671,7 @@ svg.on('keydown', (e) => {
 
 /* ================= sidebar ================= */
 const bodyEl = $('#body'), qEl = $('#q'), suggEl = $('#sugg');
-const TABS = ['explore', 'track', 'stations'];
+const TABS = ['home', 'explore', 'track', 'stations'];
 let tab = TABS.includes(store.get('tab', 'explore')) ? store.get('tab', 'explore') : 'explore';
 stationsTabActive = tab === 'stations';
 const nav = [];                 // screens opened over the tab: { type: 'train', id, ctx } | { type: 'station', code }
@@ -3663,7 +3702,8 @@ function setTab(name, { focus = false } = {}) {
 $('#tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
 $('#tabs').addEventListener('keydown', (e) => {
   const i = TABS.indexOf(tab);
-  const j = e.key === 'ArrowRight' ? (i + 1) % 3 : e.key === 'ArrowLeft' ? (i + 2) % 3 : e.key === 'Home' ? 0 : e.key === 'End' ? 2 : -1;
+  const k = TABS.length;
+  const j = e.key === 'ArrowRight' ? (i + 1) % k : e.key === 'ArrowLeft' ? (i + k - 1) % k : e.key === 'Home' ? 0 : e.key === 'End' ? k - 1 : -1;
   if (j >= 0) { e.preventDefault(); setTab(TABS[j], { focus: true }); }
 });
 
@@ -3739,7 +3779,8 @@ function showScreen({ reset = false, restore = false } = {}) {
   if (mqMobile.matches) setSheet(sheet.state);
 }
 function renderTab() {
-  if (tab === 'explore') { renderSummary(); renderList(); }
+  if (tab === 'home') renderHome();
+  else if (tab === 'explore') { renderSummary(); renderList(); }
   else if (tab === 'track') renderTrack();
   else renderStationsTab();
 }
@@ -4391,6 +4432,14 @@ function compareHTML(t) {
     <div class="cmp-foot"><span>Comparing with train ${esc(o.num)}</span><button type="button" class="text-btn" id="cmpClear">Stop comparing</button></div>
   </section>`;
 }
+/* On a train in the rider's trips: when it reaches their stop, and how late. */
+function yourStopHTML(t) {
+  const p = tripOf(t);
+  if (!p || t.cancelled) return '';
+  const leg = snapOf(t, p);
+  return `<p class="d-yours sig-${esc(leg.sig)}">Your stop: <b>${esc(p.to.name)}</b> ${esc(clockZ(leg.arrive, p.to.tz))}, ${esc(fmtDelay(leg.delay).toLowerCase())}</p>`;
+}
+let moreOpen = false;   // the train page's "More details", kept open across refreshes once opened
 function renderDetail() {
   const box = $('#detail');
   const t = selectedId && byId.get(selectedId);
@@ -4399,7 +4448,7 @@ function renderDetail() {
   const under = nav[nav.length - 2];
   const backLabel = under && under.type === 'station' ? 'Back to ' + (stations.get(under.code)?.name || 'station')
     : tab === 'explore' ? (query.trim() || delayFilter ? 'Back to results' : 'All trains')
-    : tab === 'track' ? 'Back to Track a train' : 'Back to stations';
+    : tab === 'track' ? 'Back to Trips' : tab === 'home' ? 'Back to Home' : 'Back to stations';
   const ids = scr && scr.ctx ? scr.ctx.ids.filter((id) => byId.has(id)) : [];
   const pos = ids.indexOf(t.id);
   const next = t.nextIdx >= 0 ? t.stops[t.nextIdx] : null;
@@ -4501,6 +4550,7 @@ function renderDetail() {
         <div class="d-next"><span class="lbl">${esc(nextLbl || 'Status')}</span><strong>${esc(nextName || '')}</strong>${etaLine ? `<div class="d-eta">${etaLine}</div>` : ''}</div>
         <div class="d-status"><span class="pill"><span class="sw"></span>${esc(statusText(t))}</span>${vsLine ? `<span>${esc(vsLine)}</span>` : ''}</div>
         <p class="d-fresh${stale ? ' warn' : ''}"><span class="fdot"></span>${esc(freshTxt)}</p>
+        ${yourStopHTML(t)}
       </section>
       <section id="dProg" aria-label="Route progress">${progHTML(t) || '<p class="note">Progress appears once stations load.</p>'}</section>
       <div class="d-actbar">
@@ -4509,17 +4559,9 @@ function renderDetail() {
         <button type="button" class="btn" id="compareBtn" aria-pressed="${compareId === t.id}" title="Pin this train, then open another to compare them">${compareId === t.id ? 'Pinned for comparison' : 'Compare'}</button>
         ${ACCOUNTS_API ? `<button type="button" class="btn" id="tripBtn" aria-pressed="${!!tripOf(t)}">${tripOf(t) ? 'In your trips' : 'Add to trips'}</button>` : ''}
       </div>
-      <div class="d-jump" role="group" aria-label="Jump to"><button type="button" class="btn" data-jump=".tt">Stops</button><button type="button" class="btn" data-jump=".facts">Details</button></div>
+      <div class="d-jump" role="group" aria-label="Jump to"><button type="button" class="btn" data-jump=".tt">Stops</button><button type="button" class="btn" data-jump=".d-more">Details</button></div>
       ${compareHTML(t)}
-      <dl class="facts">
-        <div><dt>Speed</dt><dd>${moving ? Math.round(t.speed) + ' mph' : t.speed == null ? 'Not yet known' : 'Stopped'}<small>${t.speed == null ? 'worked out from the next position report' : 'as last reported'}</small></dd></div>
-        <div><dt>Heading</dt><dd>${esc(cap(HEADING_WORD[t.heading]) || 'Unknown')}</dd></div>
-        <div><dt>Map position</dt><dd>Estimated<small>from the last report</small></dd></div>
-        <div><dt>Operator</dt><dd>${esc(provName(t.provider))}</dd></div>
-      </dl>
-      <p class="est-note"><b>Position is estimated.</b> ${esc(t.feed ? provName(t.provider) : 'Amtrak')} reports positions every ${t.provider === 'Metrolink' ? 'minute or so' : 'few minutes'}. Between reports, the marker moves at the last reported speed. ${ghostVisible ? 'The dashed circle marks the last reported position.' : ''}${t.trailCount ? ' Small dots show its last hour.' : ''}</p>
       ${noticesHTML(t)}
-      ${delayChart(t)}
       <div class="tt">
         <h3>Timetable</h3>
         ${stale ? `<p class="note" style="color:var(--late-text);margin-bottom:6px">The last position report is ${esc(ago(t.posTime).toLowerCase())}, so the estimates below may be out of date.</p>` : ''}
@@ -4527,6 +4569,16 @@ function renderDetail() {
         <ol class="stops">${rows.join('')}</ol>
       </div>
       <p class="note">Times are local to each station. Dp = departs, Ar = arrives. Bold times were recorded; “est.” times are estimates. Select a station for its board.</p>
+      <details class="d-more"${moreOpen ? ' open' : ''}><summary>More details</summary>
+      <dl class="facts">
+        <div><dt>Speed</dt><dd>${moving ? Math.round(t.speed) + ' mph' : t.speed == null ? 'Not yet known' : 'Stopped'}<small>${t.speed == null ? 'worked out from the next position report' : 'as last reported'}</small></dd></div>
+        <div><dt>Heading</dt><dd>${esc(cap(HEADING_WORD[t.heading]) || 'Unknown')}</dd></div>
+        <div><dt>Map position</dt><dd>Estimated<small>from the last report</small></dd></div>
+        <div><dt>Operator</dt><dd>${esc(provName(t.provider))}</dd></div>
+      </dl>
+      <p class="est-note"><b>Position is estimated.</b> ${esc(t.feed ? provName(t.provider) : 'Amtrak')} reports positions every ${t.provider === 'Metrolink' ? 'minute or so' : 'few minutes'}. Between reports, the marker moves at the last reported speed. ${ghostVisible ? 'The dashed circle marks the last reported position.' : ''}${t.trailCount ? ' Small dots show its last hour.' : ''}</p>
+      ${delayChart(t)}
+      </details>
     </div>`;
   $('#back').onclick = goBack;
   $('#center').onclick = () => { setFollow(false); panTo(t, true); if (mqMobile.matches) setSheet('collapsed'); };
@@ -4555,10 +4607,13 @@ function renderDetail() {
   }
   const more = $('#earlier');
   if (more) more.onclick = () => { showEarlier = true; renderDetail(); };
+  const moreEl = $('.d-more', box);
+  if (moreEl) moreEl.addEventListener('toggle', () => { moreOpen = moreEl.open; });
   $$('[data-jump]', box).forEach((b) => {
     b.onclick = () => {
       const el = $(b.dataset.jump, box);
       if (!el) return;
+      if (el.tagName === 'DETAILS') el.open = true;
       if (mqMobile.matches && sheet.state !== 'full') setSheet('full');
       const top = el.getBoundingClientRect().top - bodyEl.getBoundingClientRect().top + bodyEl.scrollTop - 8;
       bodyEl.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' });
@@ -5960,6 +6015,7 @@ function showTripTrain(p) {
     : `${whose} isn’t in the live feed.`, 6000);
 }
 function renderMyTrips() {
+  if (tab === 'home' && !topScreen()) renderHome();   // Home shows the same trips
   const el = $('#mtList');
   $('#mtSec').hidden = !ACCOUNTS_API;
   if (!session) {
@@ -5973,7 +6029,7 @@ function renderMyTrips() {
     : '<p class="hint">No trips yet. Plan one below or add from a train.</p>')
     + (past.length ? `<details class="mt-past"><summary>Past trips (${past.length})</summary><div class="mt-list">${past.map((p) => tripCard(p)).join('')}</div></details>` : '');
 }
-$('#mtList').addEventListener('click', async (e) => {
+async function onTripCards(e) {
   if (e.target.closest('#mtSignIn')) { openAccount('auth', 'Sign in to save trips.'); return; }
   const x = e.target.closest('[data-trip-x]');
   if (x) {
@@ -5985,6 +6041,97 @@ $('#mtList').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-trip]');
   const p = b && myTrips.find((q) => q.id === b.dataset.trip);
   if (p) showTripTrain(p);
+}
+$('#mtList').addEventListener('click', onTripCards);
+$('#homeList').addEventListener('click', onTripCards);
+
+/* ---------------- home: the rider's current or next trip, before anything else ---------------- */
+/* The hero is the trip that's running now, else the next one. Times and delays are at the rider's own stops.
+   The last live view of each trip is kept, so with no connection Home shows it, marked as the last update. */
+let homeSnaps = store.get('homeSnaps', {});   // trip id -> snapshot
+function heroTrip() {
+  const ahead = myTrips.filter((p) => !tripDone(p));
+  return ahead.find((p) => liveForTrip(p)) || ahead[0] || null;
+}
+function snapOf(t, p) {
+  const i = t.stops.findIndex((s) => s.code === p.from.code);
+  const j = t.stops.findIndex((s, k) => k > i && s.code === p.to.code);
+  const from = t.stops[i], to = t.stops[j], next = t.nextIdx >= 0 ? t.stops[t.nextIdx] : null;
+  const delay = to ? diffMin(to.arr || to.schArr, to.schArr) : t.delay;
+  const boarded = i >= 0 && t.lastIdx >= i;   // the train has left the rider's station
+  return {
+    status: boarded ? '' : liveLeg(t, p), sig: sig(delay), cancelled: t.cancelled, delay,
+    depart: from ? ms(from.dep || from.schDep) : p.from.at,
+    arrive: to ? ms(to.arr || to.schArr) : p.to.at,
+    next: next && i >= 0 && t.nextIdx <= j ? { name: next.name || next.code, at: ms(next.arr || next.dep || next.schArr), tz: next.tz } : null,
+    reportedAt: t.posTime,
+  };
+}
+function heroHTML(p) {
+  const live = liveForTrip(p);
+  let snap = null, fresh = 'live';
+  if (live) { snap = snapOf(live, p); homeSnaps[p.id] = snap; fresh = freshness(live); }
+  else if (lastError && homeSnaps[p.id]) { snap = homeSnaps[p.id]; fresh = 'offline'; }
+  const head = `<div class="hero-top"><span>${esc(dayWord(p.from.at, p.from.tz))}</span><span>${esc(provName(p.provider))}</span></div>`
+    + `<div class="hero-title">${esc(p.num)} ${esc(p.route)}</div>`
+    + `<div class="hero-leg">${esc(p.from.name)} ${esc(clockZ(p.from.at, p.from.tz))} → ${esc(p.to.name)} ${esc(clockZ(p.to.at, p.to.tz))}${plusDays(p.from, p.to)}</div>`;
+  const acts = (track) => `<div class="hero-acts">${track ? '<button type="button" class="btn primary" data-hero="track">Track train</button>' : ''}`
+    + `${live ? '<button type="button" class="btn" data-hero="share">Share</button>' : ''}<button type="button" class="btn" data-hero="trips">All trips</button></div>`;
+  if (!snap) {
+    return `<div class="hero">${head}<p class="hero-status">Scheduled. Live once running.</p>`
+      + `<p class="hero-fresh">Leaves ${esc(p.from.name)} ${esc(relTime(p.from.at))}.</p>${acts(false)}</div>`;
+  }
+  const span = snap.arrive - snap.depart;
+  const done = span > 0 ? Math.min(1, Math.max(0, (Date.now() - snap.depart) / span)) : 0;
+  const when = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const freshText = fresh === 'offline' ? `Offline. Last update ${when(snap.reportedAt)}.`
+    : fresh === 'stale' ? `Last report ${when(snap.reportedAt)}. Times may be out of date.`
+    : `Reported ${shortAgo(snap.reportedAt)}`;
+  const eta = snap.cancelled ? '<strong>Cancelled</strong>'
+    : `<strong>${esc(clockZ(snap.arrive, p.to.tz))}</strong><span>${snap.arrive <= Date.now() ? 'Arrived' : fresh === 'live' ? 'Arrives' : 'Was due'} ${esc(p.to.name)}, ${esc(relTime(snap.arrive))}</span>`;
+  return `<div class="hero is-live sig-${esc(snap.sig)}">${head}`
+    + `<div class="hero-eta">${eta}${snap.cancelled ? '' : `<span class="hero-delay">${esc(fmtDelay(snap.delay))}</span>`}</div>`
+    + `<p class="hero-status">${esc(snap.status || (snap.next ? `Next: ${snap.next.name} ${clockZ(snap.next.at, snap.next.tz)}` : ''))}</p>`
+    + `<div class="hero-bar" role="img" aria-label="${Math.round(done * 100)}% of your journey"><i style="width:${(done * 100).toFixed(1)}%"></i></div>`
+    + `<p class="hero-fresh${fresh === 'live' ? '' : ' warn'}">${esc(freshText)}</p>${acts(!snap.cancelled && !!live)}</div>`;
+}
+function renderHome() {
+  const hero = $('#homeHero'), more = $('#homeMore');
+  if (!session) {
+    more.hidden = true;
+    hero.innerHTML = '<div class="hero hero-empty"><div class="hero-title">Your trips, at a glance</div>'
+      + '<p class="hero-status">Save the trains you take and see their status here.</p>'
+      + '<div class="hero-acts"><button type="button" class="btn primary" data-hero="signin">Sign in</button><button type="button" class="btn" data-hero="explore">Explore live trains</button></div></div>';
+    return;
+  }
+  const p = heroTrip();
+  if (!p) {
+    more.hidden = true;
+    hero.innerHTML = '<div class="hero hero-empty"><div class="hero-title">No trips coming up</div>'
+      + '<p class="hero-status">Add a train you’re taking, today or months ahead.</p>'
+      + '<div class="hero-acts"><button type="button" class="btn primary" data-hero="plan">Add a train</button><button type="button" class="btn" data-hero="explore">Explore live trains</button></div></div>';
+    return;
+  }
+  hero.innerHTML = heroHTML(p);
+  for (const id of Object.keys(homeSnaps)) if (!myTrips.some((q) => q.id === id)) delete homeSnaps[id];
+  store.set('homeSnaps', homeSnaps);
+  const rest = myTrips.filter((q) => q !== p && !tripDone(q));
+  more.hidden = !rest.length;
+  $('#homeCount').textContent = rest.length ? plural(rest.length, 'trip') : '';
+  $('#homeList').innerHTML = rest.map((q) => tripCard(q)).join('');
+}
+$('#homeHero').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-hero]');
+  if (!b) return;
+  const p = heroTrip(), live = p && liveForTrip(p);
+  switch (b.dataset.hero) {
+    case 'track': if (live) openTrain(live.id, { pan: true }); break;
+    case 'share': if (live) shareLink(baseUrl() + '#t-' + encodeURIComponent(live.id), `Train ${live.num} ${live.route} on Trackside`); break;
+    case 'trips': setTab('track'); break;
+    case 'explore': setTab('explore'); break;
+    case 'plan': openPlan(); break;
+    case 'signin': openAccount('auth', 'Sign in to save trips.'); break;
+  }
 });
 
 /* ---------------- friends: people who see each other's trips ---------------- */
@@ -6684,7 +6831,7 @@ async function refresh() {
     nextAt = Date.now() + REFRESH_S * 1000;
     showError(err);
     setStatus('error');
-    if (!topScreen() && tab === 'explore') renderList();
+    if (!topScreen()) renderTab();   // lists and Home show the last copy as offline
   }
   loadStations();
 }
@@ -6702,6 +6849,7 @@ document.addEventListener('visibilitychange', () => {
 /* ---------------- start ---------------- */
 syncSettings();
 setDensity(prefs.density);
+if (session && myTrips.some((p) => !tripDone(p)) && !pendingHash) tab = 'home';   // trips first for people taking one
 for (const n of TABS) { const b = $('#tab-' + n); b.setAttribute('aria-selected', String(n === tab)); b.tabIndex = n === tab ? 0 : -1; }
 if (mqMobile.matches) setSheet(sheet.state, false);
 initBasemap();
